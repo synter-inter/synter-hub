@@ -1,11 +1,9 @@
--- synter v1 — nightfall style
--- android / delta · aim · 16 esp modes · fly · music · snow 
+-- synter hub v1.0
+-- android / delta · aim · esp · movement · snow · preview
 
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local SoundService     = game:GetService("SoundService")
-local TweenService     = game:GetService("TweenService")
 
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui")
@@ -15,11 +13,11 @@ local function getChar() return LP.Character end
 local function getHum() local c=getChar() return c and c:FindFirstChildOfClass("Humanoid") end
 local isTouch = UserInputService.TouchEnabled
 
-for _, n in ipairs({"SynterAimbot","SynterFovGui","SynterAimbot_BS","SynterMenu"}) do
+for _, n in ipairs({"SynterHub","SynterFovGui"}) do
     local g = PG:FindFirstChild(n); if g then pcall(function() g:Destroy() end) end
 end
-if _G.AvehAimbotCleanup then pcall(_G.AvehAimbotCleanup) end
-pcall(function() RunService:UnbindFromRenderStep("AvehAimLoop") end)
+if _G.SynterCleanup then pcall(_G.SynterCleanup) end
+pcall(function() RunService:UnbindFromRenderStep("SynterAimLoop") end)
 
 local track = {}
 local function addTrack(c) table.insert(track, c); return c end
@@ -31,7 +29,7 @@ local C = {
     Enabled=false, AlwaysAim=isTouch, Smoothness=0.65, FOV=150,
     MaxDist=500, DrawFOV=true, AimHeld=false, TeamCheck=true, IgnoreFriends=true,
 
-    ESP=false, ESPMode="void", ESPHealth=true, ESPBox=false, ESPSkeleton=true,
+    ESP=false, ESPMode="void", ESPHealth=true, ESPBox=true, ESPSkeleton=true,
     ESPTracers=true, ESPName=true,
 
     Noclip=false, Fly=false, FlySpeed=60, FlyAura=true, FlyAnim=true, FlyTilt=true,
@@ -41,23 +39,25 @@ local C = {
     AntiAFK=true, AutoJump=false, JumpPower=50,
 
     Snow=true,
-    MusicId="", MusicVolume=0.5,
+
+    theme="dark", cornersStyle="rounded",
+    scale=1.00,
 }
 
-local state = { lang="ru", theme="dark", scale=1.00, tab="aim", customColor=nil }
+local state = { currentTab="aim" }
 local offsetFromCenter = Vector2.new(0, 0)
 
 -- ============================================================
--- ПАЛИТРА (Nightfall)
+-- ПАЛИТРА
 -- ============================================================
 local BG = {
     dark     = Color3.fromRGB(18, 20, 31),
     midnight = Color3.fromRGB(8, 9, 18),
     slate    = Color3.fromRGB(30, 34, 48),
 }
-local WIN_R  = { sharp=6, rounded=18, pill=30 }
-local ROW_R  = { sharp=4, rounded=12, pill=22 }
-local INNER_R= { sharp=3, rounded=9,  pill=16 }
+local WIN_R   = { sharp=6, rounded=18, pill=30 }
+local ROW_R   = { sharp=4, rounded=12, pill=22 }
+local INNER_R = { sharp=3, rounded=9,  pill=16 }
 
 local WHITE   = Color3.new(1,1,1)
 local ON_TEXT = Color3.fromRGB(11, 13, 24)
@@ -69,7 +69,7 @@ local OFF     = Color3.fromRGB(52, 55, 66)
 
 local PRESETS = { "#a3e635", "#22d3ee", "#a78bfa", "#fb7185", "#fbbf24", "#60a5fa", "#f8fafc" }
 
-local ACCENT = Color3.fromHex("#a3e635")   -- текущий акцент
+local ACCENT    = Color3.fromHex("#a3e635")
 local ESP_COLOR = Color3.fromHex("#22d3ee")
 local FOV_COLOR = Color3.fromHex("#f8fafc")
 
@@ -83,10 +83,10 @@ local function parseHex(s)
 end
 
 -- ============================================================
--- СНЕГ (в fovGui, виден при свёрнутом меню)
+-- FOV GUI + ESP LAYER + SNOW
 -- ============================================================
 local fovGui = Instance.new("ScreenGui")
-fovGui.Name = "AvehFovGui"
+fovGui.Name = "SynterFovGui"
 fovGui.ResetOnSpawn = false; fovGui.IgnoreGuiInset = true
 fovGui.DisplayOrder = 998; fovGui.Parent = PG
 
@@ -122,23 +122,7 @@ do
     end
 end
 local snowTime = 0
-addTrack(RunService.RenderStepped:Connect(function(dt)
-    if not C.Snow then return end
-    dt = math.min(dt, 0.1)
-    local size = vp(); local W, H = size.X, size.Y
-    snowTime = snowTime + dt
-    for _, fl in ipairs(snowFlakes) do
-        fl.y = fl.y + fl.speed * dt
-        if fl.y > H + 5 then
-            fl.y = -fl.size - math.random() * 30
-            fl.x = math.random() * W
-        end
-        local px = fl.x + math.sin(snowTime * fl.freq + fl.phase) * fl.amp
-        fl.gui.Position = UDim2.fromOffset(px, fl.y)
-    end
-end))
 
--- FOV CIRCLE
 local fovFrame = Instance.new("Frame")
 fovFrame.AnchorPoint = Vector2.new(0.5,0.5)
 fovFrame.Position = UDim2.new(0.5,0,0.5,0)
@@ -178,10 +162,10 @@ local function isEnemy(plr)
     return true
 end
 
-local function wallClear(targetChar, aimPart)
+local function wallClear(targetChar, targetPos)
     local c = cam()
     local origin = c.CFrame.Position
-    local dir = aimPart.Position - origin
+    local dir = targetPos - origin
     local filter = { c }
     local mine = getChar()
     if mine then table.insert(filter, mine) end
@@ -204,16 +188,11 @@ local function wallClear(targetChar, aimPart)
 end
 
 local lockedTarget, lockLost = nil, 0
-local function scoreTarget(part)
-    local c = cam()
-    local pos, on = c:WorldToViewportPoint(part.Position)
-    if not on or pos.Z <= 0 then return nil end
-    local size = vp()
-    return (Vector2.new(pos.X,pos.Y) - Vector2.new(size.X/2,size.Y/2)).Magnitude
-end
+
 local function aimPartOf(char)
     return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
 end
+
 local function pickBest()
     local best, bestDist = nil, C.FOV
     local myChar = getChar()
@@ -225,9 +204,14 @@ local function pickBest()
             local part = aimPartOf(plr.Character)
             if hum and hum.Health > 0 and part then
                 if (part.Position - myPos).Magnitude <= C.MaxDist then
-                    local d = scoreTarget(part)
-                    if d and d < bestDist and wallClear(plr.Character, part) then
-                        bestDist = d; best = part
+                    local sp, on = cam():WorldToViewportPoint(part.Position)
+                    if on and sp.Z > 0 then
+                        local size = vp()
+                        local d = (Vector2.new(sp.X,sp.Y) - Vector2.new(size.X/2,size.Y/2)).Magnitude
+                        if d < bestDist and wallClear(plr.Character, part.Position) then
+                            bestDist = d
+                            best = part
+                        end
                     end
                 end
             end
@@ -235,14 +219,20 @@ local function pickBest()
     end
     return best
 end
+
 local function findTarget()
     if lockedTarget then
         local parent = lockedTarget.Parent
         local hum = parent and parent:FindFirstChildOfClass("Humanoid")
         if parent and hum and hum.Health > 0 then
-            local d = scoreTarget(lockedTarget)
-            if d and d < C.FOV and wallClear(parent, lockedTarget) then
-                lockLost = 0; return lockedTarget
+            local sp, on = cam():WorldToViewportPoint(lockedTarget.Position)
+            if on and sp.Z > 0 then
+                local size = vp()
+                local d = (Vector2.new(sp.X,sp.Y) - Vector2.new(size.X/2,size.Y/2)).Magnitude
+                if d < C.FOV and wallClear(parent, lockedTarget.Position) then
+                    lockLost = 0
+                    return lockedTarget
+                end
             end
         end
         lockLost = lockLost + 1
@@ -259,6 +249,7 @@ end
 -- ============================================================
 local espTracked = {}
 local hue = 0
+
 local MODES = {
     void    = { fill=Color3.fromRGB(0,0,0),       outline=Color3.fromRGB(160,60,255),
                 light=Color3.fromRGB(140,60,255), bright=2.4, range=14,
@@ -365,10 +356,10 @@ local function applyHighlightMode(entry, mode, rainbowCol)
     end
 end
 
--- health bar
+-- HEALTH BAR
 local function makeHealthBar(hrp)
     local bb = Instance.new("BillboardGui")
-    bb.Name="AvehHB"; bb.Adornee=hrp
+    bb.Name="SynterHB"; bb.Adornee=hrp
     bb.Size=UDim2.new(0,80,0,32); bb.StudsOffset=Vector3.new(3.4,0.6,0)
     bb.AlwaysOnTop=true; bb.MaxDistance=1500; bb.LightInfluence=0
     bb.Parent=hrp
@@ -407,10 +398,10 @@ local function updateHealthBar(hb, hum)
     hb.label.Text = tostring(math.floor(hum.Health + 0.5)) .. " / " .. tostring(math.floor(maxH))
 end
 
--- nametag
+-- NAME
 local function makeNameTag(hrp)
     local bb = Instance.new("BillboardGui")
-    bb.Name="AvehName"; bb.Adornee=hrp
+    bb.Name="SynterName"; bb.Adornee=hrp
     bb.Size=UDim2.new(0,140,0,18); bb.StudsOffset=Vector3.new(0,3.4,0)
     bb.AlwaysOnTop=true; bb.MaxDistance=800; bb.LightInfluence=0
     bb.Parent=hrp
@@ -431,7 +422,7 @@ local function updateNameTag(nt, plr, hrp)
     nt.label.Text = plr.Name .. " [" .. dist .. "m]"
 end
 
--- tracers
+-- TRACERS
 local tracerCache = {}
 local function getTracer(plr)
     local t = tracerCache[plr]
@@ -460,7 +451,7 @@ local function clearTracer(plr)
     if t then pcall(function() t:Destroy() end); tracerCache[plr] = nil end
 end
 
--- box / skeleton
+-- BOX / SKELETON
 local SKELETON_R15 = {
     {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
     {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
@@ -496,19 +487,52 @@ local function hideOverlay(entry)
     if entry.box then entry.box.Visible = false end
     if entry.skel then for _, l in pairs(entry.skel) do l.Visible = false end end
 end
-local function updateOverlay(entry, char, hrp, color)
+local function updateOverlay(entry, char, color)
     if not C.ESPBox and not C.ESPSkeleton then hideOverlay(entry); return end
     local c = cam()
-    local top = c:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.9,0))
-    local bot = c:WorldToViewportPoint(hrp.Position - Vector3.new(0,3.2,0))
-    if top.Z <= 0 or bot.Z <= 0 then hideOverlay(entry); return end
+
+    -- 3D AABB по прямым частям тела (без аксессуаров и HRP)
+    local minP, maxP = nil, nil
+    for _, p in ipairs(char:GetChildren()) do
+        if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+            local half = p.Size / 2
+            if not minP then
+                minP = p.Position - half; maxP = p.Position + half
+            else
+                minP = Vector3.new(math.min(minP.X, p.Position.X - half.X),
+                                   math.min(minP.Y, p.Position.Y - half.Y),
+                                   math.min(minP.Z, p.Position.Z - half.Z))
+                maxP = Vector3.new(math.max(maxP.X, p.Position.X + half.X),
+                                   math.max(maxP.Y, p.Position.Y + half.Y),
+                                   math.max(maxP.Z, p.Position.Z + half.Z))
+            end
+        end
+    end
+    if not minP then hideOverlay(entry); return end
+
+    local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
+    for xi=0,1 do for yi=0,1 do for zi=0,1 do
+        local v = Vector3.new(xi==0 and minP.X or maxP.X,
+                              yi==0 and minP.Y or maxP.Y,
+                              zi==0 and minP.Z or maxP.Z)
+        local sp, on = c:WorldToViewportPoint(v)
+        if on and sp.Z > 0 then
+            minX = math.min(minX, sp.X); minY = math.min(minY, sp.Y)
+            maxX = math.max(maxX, sp.X); maxY = math.max(maxY, sp.Y)
+        end
+    end end end
+    if minX == math.huge then hideOverlay(entry); return end
+
     if C.ESPBox then
         if not entry.box then entry.box, entry.boxStroke = mkBoxFrame() end
-        local h = math.abs(bot.Y-top.Y); local w = h * 0.55
-        entry.box.Position = UDim2.fromOffset(top.X-w/2, math.min(top.Y, bot.Y))
-        entry.box.Size = UDim2.fromOffset(w, h)
-        entry.boxStroke.Color = color; entry.box.Visible = true
-    elseif entry.box then entry.box.Visible = false end
+        entry.box.Position = UDim2.fromOffset(minX, minY)
+        entry.box.Size = UDim2.fromOffset(maxX - minX, maxY - minY)
+        entry.boxStroke.Color = color
+        entry.box.Visible = true
+    elseif entry.box then
+        entry.box.Visible = false
+    end
+
     if C.ESPSkeleton then
         entry.skel = entry.skel or {}
         local conns = char:FindFirstChild("UpperTorso") and SKELETON_R15 or SKELETON_R6
@@ -550,14 +574,14 @@ local function ensureESP(plr, char, hrp)
     if not (entry.highlight and entry.highlight.Parent == char) then
         safeDestroy(entry.highlight)
         local h = Instance.new("Highlight")
-        h.Name="AvehHL"; h.Adornee=char
+        h.Name="SynterHL"; h.Adornee=char
         h.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
         h.Parent=char; entry.highlight = h
     end
     if not (entry.light and entry.light.Parent == hrp) then
         safeDestroy(entry.light)
         local l = Instance.new("PointLight")
-        l.Name="AvehLight"; l.Parent = hrp
+        l.Name="SynterLight"; l.Parent = hrp
         entry.light = l
     end
     return entry
@@ -596,7 +620,7 @@ local function updateOne(plr, rainbowCol)
     end
     local color = ESP_COLOR
     if C.ESPMode == "rainbow" then color = rainbowCol end
-    updateOverlay(entry, char, hrp, color)
+    updateOverlay(entry, char, color)
     if C.ESPTracers then
         local sp, on = cam():WorldToViewportPoint(hrp.Position)
         if on and sp.Z > 0 then
@@ -634,6 +658,7 @@ local function updateESP(dt)
 end
 addTrack(Players.PlayerRemoving:Connect(function(plr) clearESP(plr) end))
 
+-- NOCLIP
 addTrack(RunService.Stepped:Connect(function()
     if not C.Noclip then return end
     local char = getChar(); if not char then return end
@@ -659,16 +684,16 @@ end
 local function stopFlyBV() if flyBV then flyBV:Destroy(); flyBV = nil end end
 
 local function clearFlyAura()
-    local a = _G._avehAura; if not a then return end
+    local a = _G._synterAura; if not a then return end
     for _, obj in ipairs({a.trail,a.particles,a.light,a.a0,a.a1,a.hl}) do
         pcall(function() if obj and obj.Parent then obj:Destroy() end end)
     end
-    _G._avehAura = nil
+    _G._synterAura = nil
 end
 local function ensureFlyAura()
     local char = getChar(); if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart"); if not root then return end
-    if _G._avehAura and _G._avehAura.root == root and _G._avehAura.root.Parent then return end
+    if _G._synterAura and _G._synterAura.root == root and _G._synterAura.root.Parent then return end
     clearFlyAura()
     local a0 = Instance.new("Attachment"); a0.Position=Vector3.new(0.85,0.4,1); a0.Parent=root
     local a1 = Instance.new("Attachment"); a1.Position=Vector3.new(-0.85,0.4,1); a1.Parent=root
@@ -715,7 +740,7 @@ local function ensureFlyAura()
     hl.FillColor=Color3.fromRGB(255,240,120); hl.FillTransparency=0.85
     hl.OutlineColor=Color3.fromRGB(120,200,255); hl.OutlineTransparency=0
     hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop; hl.Parent=char
-    _G._avehAura = { root=root, trail=trail, particles=particles, light=light, a0=a0, a1=a1, hl=hl }
+    _G._synterAura = { root=root, trail=trail, particles=particles, light=light, a0=a0, a1=a1, hl=hl }
 end
 
 local flyAnimTrack, flyAnimChar, flyAnimLoading = nil, nil, false
@@ -795,25 +820,6 @@ addTrack(RunService.Heartbeat:Connect(function()
     end
 end))
 
--- MUSIC
-local musicSound = nil
-local function ensureMusicSound()
-    if musicSound and musicSound.Parent then return musicSound end
-    musicSound = Instance.new("Sound")
-    musicSound.Name="AvehMusic"; musicSound.Looped=true
-    musicSound.Volume=C.MusicVolume; musicSound.Parent=SoundService
-    return musicSound
-end
-local function musicPlay()
-    local s = ensureMusicSound()
-    if not C.MusicId or C.MusicId == "" then return end
-    s.SoundId = "rbxassetid://" .. tostring(C.MusicId)
-    s.Volume = C.MusicVolume
-    pcall(function() s:Play() end)
-end
-local function musicPause() if musicSound then pcall(function() musicSound:Pause() end) end end
-local function musicStop() if musicSound then pcall(function() musicSound:Stop() end) end end
-
 addTrack(RunService.Heartbeat:Connect(function(dt)
     if C.Fly then
         ensureFlyBV()
@@ -845,7 +851,7 @@ addTrack(RunService.Heartbeat:Connect(function(dt)
 end))
 
 -- ============================================================
--- UI HELPERS (Nightfall style)
+-- UI HELPERS
 -- ============================================================
 local refreshers = {}
 local function onRefresh(fn) table.insert(refreshers, fn) end
@@ -889,7 +895,7 @@ end
 -- ОКНО
 -- ============================================================
 local gui = new("ScreenGui", {
-    Name = "NightfallMenu",
+    Name = "SynterHub",
     ResetOnSpawn = false, IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     DisplayOrder = 100, Parent = PG,
@@ -908,15 +914,13 @@ local uiScale = new("UIScale", { Parent = window })
 
 local function updateScale()
     local vs = vp()
-    uiScale.Scale = math.clamp(math.min((vs.X - 40)/540, (vs.Y - 40)/656), 0.4, 1)
+    uiScale.Scale = math.clamp(math.min((vs.X - 40)/540, (vs.Y - 40)/656), 0.4, 1) * C.scale
 end
 updateScale()
 addTrack(cam():GetPropertyChangedSignal("ViewportSize"):Connect(updateScale))
 
--- Сайдбар
-local sidebar = new("Frame", {
-    BackgroundTransparency=1, Size=UDim2.new(0,84,1,0), Parent=window,
-})
+-- SIDEBAR
+local sidebar = new("Frame", { BackgroundTransparency=1, Size=UDim2.new(0,84,1,0), Parent=window })
 new("Frame", {
     BackgroundColor3=WHITE, BackgroundTransparency=0.94,
     BorderSizePixel=0, Position=UDim2.fromOffset(84,0),
@@ -929,7 +933,7 @@ local logo = new("Frame", {
 corner(logo, 12)
 new("TextLabel", {
     BackgroundTransparency=1, Size=UDim2.fromScale(1,1),
-    Text="A", Font=Enum.Font.GothamBold, TextSize=20,
+    Text="S", Font=Enum.Font.GothamBold, TextSize=20,
     TextColor3=ON_TEXT, Parent=logo,
 })
 local tabList = new("Frame", {
@@ -940,11 +944,11 @@ new("UIListLayout", { Padding=UDim.new(0,6), SortOrder=Enum.SortOrder.LayoutOrde
 new("TextLabel", {
     BackgroundTransparency=1, AnchorPoint=Vector2.new(0.5,1),
     Position=UDim2.new(0.5,0,1,-14), Size=UDim2.fromOffset(60,16),
-    Text="v14", Font=Enum.Font.RobotoMono, TextSize=10.5,
+    Text="v1.0", Font=Enum.Font.RobotoMono, TextSize=10.5,
     TextColor3=Color3.fromRGB(107,112,137), Parent=sidebar,
 })
 
--- Основная колонка
+-- MAIN
 local main = new("Frame", {
     BackgroundTransparency=1, Position=UDim2.fromOffset(85,0),
     Size=UDim2.new(1,-85,1,0), Parent=window,
@@ -966,10 +970,9 @@ new("Frame", {
     BackgroundColor3=WHITE, BackgroundTransparency=0.94,
     BorderSizePixel=0, Size=UDim2.new(1,0,0,1), Parent=footer,
 })
-makeLabel(footer, "AVEH · NIGHTFALL", 11.5, Enum.Font.GothamBold, SOFT,
+makeLabel(footer, "SYNTER · HUB", 11.5, Enum.Font.GothamBold, SOFT,
     UDim2.fromOffset(24,0), UDim2.new(0.5,0,1,0))
 
--- Кнопки X / – в правом верхнем
 local closeBtn = new("TextButton", {
     AutoButtonColor=false, BorderSizePixel=0, Text="✕",
     Font=Enum.Font.GothamBold, TextSize=13, TextColor3=WHITE,
@@ -987,7 +990,7 @@ local minBtn = new("TextButton", {
 })
 corner(minBtn, 8)
 
--- Иконки табов
+-- ICONS
 local function buildIcon(kind, parent)
     local box = new("Frame", {
         BackgroundTransparency=1, AnchorPoint=Vector2.new(0.5,0),
@@ -1025,15 +1028,6 @@ local function buildIcon(kind, parent)
             local cy = 11 - math.cos(a)*8.5
             rect(cx-1, cy-2, 2, 4, nil, i*45)
         end
-    elseif kind == "music" then
-        rect(6,4,2,14,1); rect(14,4,2,14,1)
-        rect(6,4,10,3,1); rect(6,10,10,3,1)
-        rect(3,14,6,6,3); rect(11,14,6,6,3)
-    elseif kind == "bs" then
-        ring(4,4,14,14,4,1.6)
-        rect(2,2,6,2,1); rect(14,2,6,2,1)
-        rect(2,18,6,2,1); rect(14,18,6,2,1)
-        rect(10,10,2,2,0)
     elseif kind == "theme" then
         rect(4,8,14,14,7); rect(6.5,1,9,9,1.5,45)
     end
@@ -1043,16 +1037,12 @@ local function buildIcon(kind, parent)
     end
 end
 
--- ============================================================
--- ВКЛАДКИ
--- ============================================================
+-- TABS
 local TABS = {
-    { id="aim",    label="Аим",     sub="Наведение и захват цели",         icon="aim" },
-    { id="esp",    label="ESP",     sub="Подсветка игроков",              icon="esp" },
-    { id="move",   label="Движ.",   sub="Перемещение и утилиты",          icon="move" },
-    { id="music",  label="Музыка",  sub="Плеер Roblox",                   icon="music" },
-    { id="bs",     label="BS",      sub="Blox Strike движок",             icon="bs" },
-    { id="cfg",    label="Настр.",  sub="Тема, язык, масштаб",            icon="theme" },
+    { id="aim",   label="Аим",    sub="Наведение и захват цели",  icon="aim" },
+    { id="esp",   label="ESP",    sub="Подсветка игроков",       icon="esp" },
+    { id="move",  label="Движ.",  sub="Перемещение и утилиты",   icon="move" },
+    { id="cfg",   label="Настр.", sub="Тема и оформление",       icon="theme" },
 }
 
 local pages = {}
@@ -1084,38 +1074,36 @@ local function rowBase(page, height, order, isButton)
     if isButton then row.Text = ""; row.AutoButtonColor = false end
     local c = corner(row, ROW_R.rounded)
     stroke(row, WHITE, 1, 0.93)
-    onRefresh(function() c.CornerRadius = UDim.new(0, ROW_R.rounded) end)
+    onRefresh(function() c.CornerRadius = UDim.new(0, ROW_R[C.cornersStyle] or ROW_R.rounded) end)
     return row
 end
 
--- toggle
 local function buildToggle(page, def, order)
     local row = rowBase(page, 50, order, true)
     makeLabel(row, def.label, 14, Enum.Font.GothamBold, TEXT, UDim2.fromOffset(16,8), UDim2.new(1,-90,0,18))
     makeLabel(row, def.desc or "", 11.5, Enum.Font.Gotham, MUTED, UDim2.fromOffset(16,27), UDim2.new(1,-90,0,16))
-    local track_f = new("Frame", {
+    local tf = new("Frame", {
         AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,-16,0.5,0),
         Size=UDim2.fromOffset(42,24), BorderSizePixel=0, Parent=row,
     })
-    corner(track_f, 12)
+    corner(tf, 12)
     local knob = new("Frame", {
         BackgroundColor3=WHITE, BorderSizePixel=0,
-        Position=UDim2.fromOffset(3,3), Size=UDim2.fromOffset(18,18), Parent=track_f,
+        Position=UDim2.fromOffset(3,3), Size=UDim2.fromOffset(18,18), Parent=tf,
     })
     corner(knob, 9)
     onRefresh(function()
         local on = C[def.key]
-        track_f.BackgroundColor3 = on and ACCENT or OFF
+        tf.BackgroundColor3 = on and ACCENT or OFF
         knob.Position = UDim2.fromOffset(on and 21 or 3, 3)
     end)
     row.MouseButton1Click:Connect(function()
         C[def.key] = not C[def.key]
-        refreshAll()
         if def.onChanged then pcall(def.onChanged, C[def.key]) end
+        refreshAll()
     end)
 end
 
--- slider
 local function buildSlider(page, def, order)
     local row = rowBase(page, 62, order, false)
     makeLabel(row, def.label, 14, Enum.Font.GothamBold, TEXT, UDim2.fromOffset(16,9), UDim2.new(0.6,0,0,18))
@@ -1156,18 +1144,18 @@ local function buildSlider(page, def, order)
             dragging = true; page.ScrollingEnabled = false; setFromX(i.Position.X)
         end
     end)
-    UserInputService.InputChanged:Connect(function(i)
+    addTrack(UserInputService.InputChanged:Connect(function(i)
         if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement
         or i.UserInputType == Enum.UserInputType.Touch) then
             setFromX(i.Position.X)
         end
-    end)
-    UserInputService.InputEnded:Connect(function(i)
+    end))
+    addTrack(UserInputService.InputEnded:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1
         or i.UserInputType == Enum.UserInputType.Touch then
             if dragging then dragging = false; page.ScrollingEnabled = true end
         end
-    end)
+    end))
     onRefresh(function()
         local v = C[def.key]
         local a = (v - def.min) / (def.max - def.min)
@@ -1179,7 +1167,6 @@ local function buildSlider(page, def, order)
     end)
 end
 
--- segmented picker
 local function buildSeg(page, def, order)
     local row = rowBase(page, 50, order, false)
     makeLabel(row, def.label, 14, Enum.Font.GothamBold, TEXT, UDim2.fromOffset(16,0), UDim2.new(0.4,0,1,0))
@@ -1217,12 +1204,11 @@ local function buildSeg(page, def, order)
             e.btn.BackgroundColor3 = ACCENT
             e.btn.BackgroundTransparency = sel and 0 or 1
             e.btn.TextColor3 = sel and ON_TEXT or SOFT
-            e.c.CornerRadius = UDim.new(0, INNER_R.rounded)
+            e.c.CornerRadius = UDim.new(0, INNER_R[C.cornersStyle] or INNER_R.rounded)
         end
     end)
 end
 
--- color presets
 local function buildColor(page, def, order)
     local row = rowBase(page, 50, order, false)
     makeLabel(row, def.label, 14, Enum.Font.GothamBold, TEXT, UDim2.fromOffset(16,0), UDim2.new(0.4,0,1,0))
@@ -1245,8 +1231,7 @@ local function buildColor(page, def, order)
         corner(b, 11)
         local ring = stroke(b, TEXT, 2, 1)
         b.MouseButton1Click:Connect(function()
-            def.setter(color)
-            refreshAll()
+            def.setter(color); refreshAll()
         end)
         table.insert(swatches, { ring=ring, hex=color:ToHex() })
     end
@@ -1258,7 +1243,6 @@ local function buildColor(page, def, order)
     end)
 end
 
--- hex input
 local function buildHex(page, def, order)
     local row = rowBase(page, 50, order, false)
     makeLabel(row, def.label, 14, Enum.Font.GothamBold, TEXT, UDim2.fromOffset(16,0), UDim2.new(0.4,0,1,0))
@@ -1288,38 +1272,164 @@ local function buildHex(page, def, order)
     end)
 end
 
--- simple button
 local function buildButton(page, def, order)
     local row = rowBase(page, 44, order, true)
     makeLabel(row, def.label, 14, Enum.Font.GothamBold, ACCENT, UDim2.fromOffset(16,0), UDim2.new(1,-32,1,0))
     row.MouseButton1Click:Connect(function() if def.onClick then pcall(def.onClick) end end)
 end
 
--- text input
-local function buildInput(page, def, order)
-    local row = rowBase(page, 50, order, false)
-    makeLabel(row, def.label, 14, Enum.Font.GothamBold, TEXT, UDim2.fromOffset(16,0), UDim2.new(0.4,0,1,0))
-    local box = new("TextBox", {
-        AnchorPoint=Vector2.new(1,0.5), BackgroundColor3=Color3.new(0,0,0),
-        BackgroundTransparency=0.6, BorderSizePixel=0, ClearTextOnFocus=false,
-        Font=Enum.Font.RobotoMono, PlaceholderText=def.placeholder or "…",
-        Position=UDim2.new(1,-16,0.5,0), Size=UDim2.new(0.55,-16,0,28),
-        Text="", TextColor3=SOFT, TextSize=12, Parent=row,
-    })
-    corner(box, 8)
-    box.FocusLost:Connect(function()
-        if def.onChange then pcall(def.onChange, box.Text) end
-        refreshAll()
-    end)
-    onRefresh(function()
-        if def.getter then box.Text = tostring(def.getter() or "") end
-    end)
-end
-
 local BUILDERS = {
     toggle=buildToggle, slider=buildSlider, seg=buildSeg,
-    color=buildColor, hex=buildHex, button=buildButton, input=buildInput,
+    color=buildColor, hex=buildHex, button=buildButton,
 }
+
+-- ============================================================
+-- ПРЕВЬЮ РЕАЛЬНОГО АВАТАРА
+-- ============================================================
+local previewRef = nil
+
+local function buildAvatarPreview(parent)
+    local char = getChar()
+    local model = Instance.new("Model")
+    model.Name = "SynterPreviewAvatar"
+    if char then
+        for _, obj in ipairs(char:GetChildren()) do
+            local ok = false
+            if obj:IsA("BasePart") then ok = true
+            elseif obj:IsA("Decal") or obj:IsA("Texture") then ok = true
+            elseif obj:IsA("Shirt") or obj:IsA("Pants") or obj:IsA("ShirtGraphic") then ok = true
+            elseif obj:IsA("BodyColors") or obj:IsA("CharacterMesh") then ok = true
+            elseif obj:IsA("Accessory") then ok = true
+            elseif obj:IsA("Folder") then ok = true
+            end
+            if ok then local c = obj:Clone(); c.Parent = model end
+        end
+    end
+    for _, d in ipairs(model:GetDescendants()) do
+        if d:IsA("BasePart") then
+            d.Anchored=true; d.CanCollide=false
+            d.CanQuery=false; d.CanTouch=false; d.Massless=true
+        elseif d:IsA("Script") or d:IsA("LocalScript") or d:IsA("Animator") then
+            d:Destroy()
+        end
+    end
+    if not model:FindFirstChildWhichIsA("BasePart") then
+        local function mk(name, size, cf)
+            local p = Instance.new("Part")
+            p.Name=name; p.Size=size; p.CFrame=cf
+            p.Color=Color3.fromRGB(200,200,215)
+            p.Anchored=true; p.CanCollide=false; p.Parent=model
+        end
+        mk("Head", Vector3.new(0.7,0.7,0.7), CFrame.new(0,2.05,0))
+        mk("UpperTorso", Vector3.new(1,0.9,0.55), CFrame.new(0,1.25,0))
+        mk("LowerTorso", Vector3.new(1,0.6,0.55), CFrame.new(0,0.55,0))
+        mk("LeftUpperArm", Vector3.new(0.45,0.75,0.45), CFrame.new(0.75,1.4,0))
+        mk("LeftLowerArm", Vector3.new(0.4,0.7,0.4), CFrame.new(0.75,0.6,0))
+        mk("RightUpperArm", Vector3.new(0.45,0.75,0.45), CFrame.new(-0.75,1.4,0))
+        mk("RightLowerArm", Vector3.new(0.4,0.7,0.4), CFrame.new(-0.75,0.6,0))
+        mk("LeftUpperLeg", Vector3.new(0.5,0.9,0.5), CFrame.new(0.3,0,0))
+        mk("LeftLowerLeg", Vector3.new(0.45,0.85,0.45), CFrame.new(0.3,-0.9,0))
+        mk("RightUpperLeg", Vector3.new(0.5,0.9,0.5), CFrame.new(-0.3,0,0))
+        mk("RightLowerLeg", Vector3.new(0.45,0.85,0.45), CFrame.new(-0.3,-0.9,0))
+    end
+    local primary = model:FindFirstChild("HumanoidRootPart")
+        or model:FindFirstChild("UpperTorso")
+        or model:FindFirstChild("Torso")
+        or model:FindFirstChildWhichIsA("BasePart")
+    model.PrimaryPart = primary
+    if primary then
+        local anchor = primary.CFrame
+        for _, d in ipairs(model:GetDescendants()) do
+            if d:IsA("BasePart") then d.CFrame = anchor:ToObjectSpace(d.CFrame) end
+        end
+    end
+    model.Parent = parent
+    return model
+end
+
+local function applyPreviewMode(model, mode)
+    local oldH = model:FindFirstChildOfClass("Highlight"); if oldH then oldH:Destroy() end
+    local oldL = model:FindFirstChild("SynterPreviewLight"); if oldL then oldL:Destroy() end
+
+    -- сброс к BodyColors (или дефолт), чтобы режим всегда начинал с чистого
+    local bc = model:FindFirstChildOfClass("BodyColors")
+    local defaults = {
+        Head = Color3.fromRGB(234, 184, 146),
+        UpperTorso = Color3.fromRGB(234, 184, 146),
+        LowerTorso = Color3.fromRGB(234, 184, 146),
+        Torso      = Color3.fromRGB(234, 184, 146),
+        ["LeftUpperArm"]  = Color3.fromRGB(234, 184, 146),
+        ["LeftLowerArm"]  = Color3.fromRGB(234, 184, 146),
+        ["LeftHand"]      = Color3.fromRGB(234, 184, 146),
+        ["RightUpperArm"] = Color3.fromRGB(234, 184, 146),
+        ["RightLowerArm"] = Color3.fromRGB(234, 184, 146),
+        ["RightHand"]     = Color3.fromRGB(234, 184, 146),
+        ["Left Arm"]      = Color3.fromRGB(234, 184, 146),
+        ["Right Arm"]     = Color3.fromRGB(234, 184, 146),
+        ["LeftUpperLeg"]  = Color3.fromRGB(80, 160, 60),
+        ["LeftLowerLeg"]  = Color3.fromRGB(80, 160, 60),
+        ["LeftFoot"]      = Color3.fromRGB(80, 160, 60),
+        ["RightUpperLeg"] = Color3.fromRGB(80, 160, 60),
+        ["RightLowerLeg"] = Color3.fromRGB(80, 160, 60),
+        ["RightFoot"]     = Color3.fromRGB(80, 160, 60),
+        ["Left Leg"]      = Color3.fromRGB(80, 160, 60),
+        ["Right Leg"]     = Color3.fromRGB(80, 160, 60),
+    }
+    local map = {}
+    if bc then
+        map = {
+            Head = bc.HeadColor3,
+            UpperTorso = bc.TorsoColor3, LowerTorso = bc.TorsoColor3, Torso = bc.TorsoColor3,
+            ["LeftUpperArm"] = bc.LeftArmColor3, ["LeftLowerArm"] = bc.LeftArmColor3, ["LeftHand"] = bc.LeftArmColor3, ["Left Arm"] = bc.LeftArmColor3,
+            ["RightUpperArm"] = bc.RightArmColor3, ["RightLowerArm"] = bc.RightArmColor3, ["RightHand"] = bc.RightArmColor3, ["Right Arm"] = bc.RightArmColor3,
+            ["LeftUpperLeg"] = bc.LeftLegColor3, ["LeftLowerLeg"] = bc.LeftLegColor3, ["LeftFoot"] = bc.LeftLegColor3, ["Left Leg"] = bc.LeftLegColor3,
+            ["RightUpperLeg"] = bc.RightLegColor3, ["RightLowerLeg"] = bc.RightLegColor3, ["RightFoot"] = bc.RightLegColor3, ["Right Leg"] = bc.RightLegColor3,
+        }
+    end
+    for name, col in pairs(defaults) do
+        local p = model:FindFirstChild(name)
+        if p and p:IsA("BasePart") then
+            p.Color = map[name] or col
+            p.Material = Enum.Material.SmoothPlastic
+        end
+    end
+    -- остальные BasePart (аксессуары, меши) не трогаем в базу
+    for _, p in ipairs(model:GetDescendants()) do
+        if p:IsA("BasePart") and not defaults[p.Name] then
+            p.Material = Enum.Material.SmoothPlastic
+        end
+    end
+
+    local cfg = MODES[mode]; if not cfg then return end
+
+    if cfg.body then
+        for _, p in ipairs(model:GetDescendants()) do
+            if p:IsA("BasePart") then
+                pcall(function()
+                    p.Color = cfg.body
+                    p.Material = cfg.mat or Enum.Material.SmoothPlastic
+                end)
+            end
+        end
+    end
+
+    local h = Instance.new("Highlight")
+    h.Adornee = model
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.FillColor = cfg.fill or Color3.fromRGB(255,50,50)
+    h.OutlineColor = cfg.outline or Color3.fromRGB(255,255,255)
+    h.FillTransparency = cfg.fillT
+    h.OutlineTransparency = cfg.outlineT
+    h.Parent = model
+
+    local l = Instance.new("PointLight")
+    l.Name = "SynterPreviewLight"
+    l.Color = cfg.light or Color3.fromRGB(255,60,60)
+    l.Brightness = cfg.bright
+    l.Range = cfg.range
+    l.Shadows = false
+    l.Parent = model.PrimaryPart or model
+end
 
 -- ============================================================
 -- НАПОЛНЕНИЕ ВКЛАДОК
@@ -1342,17 +1452,14 @@ end
 local function BTN(label, onClick)
     return { kind="button", label=label, onClick=onClick }
 end
-local function INPUT(label, placeholder, getter, onChange)
-    return { kind="input", label=label, placeholder=placeholder, getter=getter, onChange=onChange }
-end
 
 -- AIM
 local aimDefs = {
     T("Enabled", "Аимбот", "Захват ближайшей цели"),
-    T("AlwaysAim", "Всегда аимить", "Без кнопки удержания"),
+    T("AlwaysAim", "Всегда аимить", "Без удержания кнопки"),
     T("TeamCheck", "Игнор союзников", "Не наводиться на команду"),
     T("IgnoreFriends", "Игнор друзей", "Не наводиться на друзей"),
-    S("Smoothness", "Плавность", 0.01, 0.95, 0.01, "", nil),
+    S("Smoothness", "Плавность", 0.01, 0.95, 0.01, ""),
     S("FOV", "Радиус FOV", 20, 500, 5, "px", function(v) updateFovCircle(0) end),
     S("MaxDist", "Макс. дистанция", 50, 2000, 50, " st"),
     T("DrawFOV", "Показывать FOV", "Круг радиуса аима", function(v) updateFovCircle(0) end),
@@ -1363,14 +1470,25 @@ for i, def in ipairs(aimDefs) do BUILDERS[def.kind](pages.aim, def, i) end
 local espDefs = {
     T("ESP", "Включить ESP", "Видеть игроков через стены"),
     T("ESPHealth", "Health bar", "Полоса HP справа"),
-    T("ESPBox", "Box", "Рамка вокруг игрока"),
+    T("ESPBox", "Box", "Рамка вокруг тела"),
     T("ESPSkeleton", "Skeleton", "Кости-линии"),
     T("ESPTracers", "Трассеры", "Линии от низа экрана"),
     T("ESPName", "Ник + дистанция", "Имя и метры над головой"),
 }
 for i, def in ipairs(espDefs) do BUILDERS[def.kind](pages.esp, def, i) end
 
--- режимы ESP — два ряда
+-- setMode — с пересборкой превью
+local function setMode(v)
+    C.ESPMode = v
+    local all = {}
+    for plr in pairs(espTracked) do table.insert(all, plr) end
+    for _, plr in ipairs(all) do clearESP(plr) end
+    if previewRef and previewRef.model then
+        pcall(applyPreviewMode, previewRef.model, v)
+    end
+    refreshAll()
+end
+
 local ESP_MODES_1 = {
     { value="void",    label="Void" },
     { value="blood",   label="Blood" },
@@ -1384,47 +1502,78 @@ local ESP_MODES_2 = {
 local ESP_MODES_3 = {
     { value="plasma",  label="Plasma" },
     { value="galaxy",  label="Galaxy" },
-    { value="ghost",   label="Ghost" },
-}
-local ESP_MODES_4 = {
-    { value="rainbow", label="Rainbow" },
-    { value="default", label="Default" },
     { value="gold",    label="Gold" },
 }
-local ESP_MODES_5 = {
+local ESP_MODES_4 = {
     { value="emerald", label="Emerald" },
     { value="crimson", label="Crimson" },
     { value="lava",    label="Lava" },
 }
-local ESP_MODES_6 = {
+local ESP_MODES_5 = {
     { value="shadow",  label="Shadow" },
-    { value="fire",    label="Fire" },
-    { value="void",    label="Void" },
+    { value="ghost",   label="Ghost" },
+    { value="rainbow", label="Rainbow" },
 }
-local function setMode(v)
-    C.ESPMode = v
-    local all = {}
-    for plr in pairs(espTracked) do table.insert(all, plr) end
-    for _, plr in ipairs(all) do clearESP(plr) end
-end
-BUILDERS.seg(pages.esp, G("ESPMode", "Режим ESP · 1", ESP_MODES_1, setMode), #espDefs+1)
-BUILDERS.seg(pages.esp, G("ESPMode", "Режим ESP · 2", ESP_MODES_2, setMode), #espDefs+2)
-BUILDERS.seg(pages.esp, G("ESPMode", "Режим ESP · 3", ESP_MODES_3, setMode), #espDefs+3)
-BUILDERS.seg(pages.esp, G("ESPMode", "Режим ESP · 4", ESP_MODES_4, setMode), #espDefs+4)
-BUILDERS.seg(pages.esp, G("ESPMode", "Режим ESP · 5", ESP_MODES_5, setMode), #espDefs+5)
-BUILDERS.color(pages.esp, COLOR("Цвет трассеров и бокса",
+local baseOrder = #espDefs
+BUILDERS.seg(pages.esp, G("ESPMode", "Режим · 1", ESP_MODES_1, setMode), baseOrder+1)
+BUILDERS.seg(pages.esp, G("ESPMode", "Режим · 2", ESP_MODES_2, setMode), baseOrder+2)
+BUILDERS.seg(pages.esp, G("ESPMode", "Режим · 3", ESP_MODES_3, setMode), baseOrder+3)
+BUILDERS.seg(pages.esp, G("ESPMode", "Режим · 4", ESP_MODES_4, setMode), baseOrder+4)
+BUILDERS.seg(pages.esp, G("ESPMode", "Режим · 5", ESP_MODES_5, setMode), baseOrder+5)
+
+BUILDERS.color(pages.esp, COLOR("Цвет трассеров / box",
     function() return ESP_COLOR end,
-    function(c) ESP_COLOR = c end), #espDefs+6)
+    function(c) ESP_COLOR = c end), baseOrder+6)
+
+-- ПРЕВЬЮ
+do
+    local vf = new("ViewportFrame", {
+        Size = UDim2.new(1, 0, 0, 260),
+        BackgroundColor3 = Color3.fromRGB(28, 30, 42),
+        BorderSizePixel = 0,
+        LayoutOrder = baseOrder+7,
+        Ambient = Color3.fromRGB(180,180,200),
+        LightColor = Color3.fromRGB(255,255,255),
+        LightDirection = Vector3.new(-0.4,-1,-0.6),
+        Parent = pages.esp,
+    })
+    corner(vf, 10)
+    stroke(vf, WHITE, 1, 0.9)
+
+    local model = buildAvatarPreview(vf)
+    applyPreviewMode(model, C.ESPMode)
+
+    local minY, maxY = math.huge, -math.huge
+    for _, d in ipairs(model:GetDescendants()) do
+        if d:IsA("BasePart") then
+            local p = d.Position
+            minY = math.min(minY, p.Y - d.Size.Y/2)
+            maxY = math.max(maxY, p.Y + d.Size.Y/2)
+        end
+    end
+    local height = maxY - minY
+    local centerY = (minY + maxY) / 2
+    if not height or height ~= height or height == math.huge or height <= 0 then
+        height, centerY = 5, 0
+    end
+    local dist = height * 1.55
+
+    local previewCam = Instance.new("Camera")
+    previewCam.Parent = vf
+    vf.CurrentCamera = previewCam
+    previewCam.CFrame = CFrame.new(Vector3.new(0, centerY, -dist), Vector3.new(0, centerY, 0))
+    previewRef = { model = model, camera = previewCam, vf = vf }
+end
 
 -- MOVEMENT
 local moveDefs = {
     T("Noclip", "Noclip", "Проходить сквозь стены"),
     T("Fly", "Fly", "Джойстик ведёт, камера — высота"),
     T("FlyAura", "Аура полёта", "Жёлто-синий след, искры"),
-    T("FlyAnim", "Анимация полёта", "Поза полёта 616006541"),
+    T("FlyAnim", "Анимация полёта", "Поза 616006541"),
     T("FlyTilt", "Наклон по направлению", "Корпус наклоняется"),
     S("FlySpeed", "Скорость полёта", 10, 300, 5, ""),
-    T("SpeedOn", "Speedhack", "Включить изменение WalkSpeed"),
+    T("SpeedOn", "Speedhack", "Изменение WalkSpeed"),
     S("SpeedHack", "WalkSpeed", 8, 300, 1, ""),
     T("AutoJump", "Авто-прыжок", "Прыгает сам"),
     T("AntiAFK", "Anti-AFK", "Не кикнет за простой"),
@@ -1432,44 +1581,8 @@ local moveDefs = {
 }
 for i, def in ipairs(moveDefs) do BUILDERS[def.kind](pages.move, def, i) end
 
--- MUSIC
-local musicDefs = {
-    INPUT("ID трека", "1837879082", function() return C.MusicId end,
-        function(txt) C.MusicId = tostring(txt):gsub("[^%d]","") end),
-    BTN("▶ Играть", function() musicPlay() end),
-    BTN("⏸ Пауза", function() musicPause() end),
-    BTN("■ Стоп", function() musicStop() end),
-    S("MusicVolume", "Громкость", 0, 1, 0.05, "", function(v)
-        if musicSound then pcall(function() musicSound.Volume = v end) end
-    end),
-}
-for i, def in ipairs(musicDefs) do BUILDERS[def.kind](pages.music, def, i) end
-
--- BLOX STRIKE
-local bsDefs = {
-    BTN("ЗАГРУЗИТЬ BLOX STRIKE", function()
-        if _G.AvehAimbotCleanup then pcall(_G.AvehAimbotCleanup) end
-        task.wait(0.2)
-        local url = "https://raw.githubusercontent.com/hidke6076-lab/Aveh-V1/refs/heads/main/AVEH-BLOXSTRIKE.lua"
-        local ok, code = pcall(function() return game:HttpGet(url) end)
-        if not ok or not code or #code < 100 then
-            warn("[Aveh] BS engine not found at " .. url)
-            return
-        end
-        local fn, err = loadstring(code)
-        if not fn then warn("[Aveh] loadstring err:", err); return end
-        local ok2, err2 = pcall(fn)
-        if not ok2 then warn("[Aveh] BS err:", err2) end
-    end),
-}
-for i, def in ipairs(bsDefs) do BUILDERS[def.kind](pages.bs, def, i) end
-
 -- SETTINGS
 local cfgDefs = {
-    G("lang", "Язык", {
-        { value="ru", label="RU" },
-        { value="en", label="EN" },
-    }),
     G("theme", "Фон меню", {
         { value="dark",     label="Dark" },
         { value="midnight", label="Midnight" },
@@ -1482,13 +1595,14 @@ local cfgDefs = {
     }),
     COLOR("Цвет меню",
         function() return ACCENT end,
-        function(c) ACCENT = c; winStroke.Color = c; end),
-    HEX("Свой hex", function() return ACCENT end, function(c) ACCENT = c; winStroke.Color = c end),
+        function(c) ACCENT = c; winStroke.Color = c end),
+    HEX("Свой hex", function() return ACCENT end,
+        function(c) ACCENT = c; winStroke.Color = c end),
     COLOR("Цвет FOV",
         function() return FOV_COLOR end,
         function(c) FOV_COLOR = c end),
     S("scale", "Размер интерфейса", 0.5, 1.4, 0.05, "x",
-        function(v) state.scale = v; updateScale() end),
+        function(v) C.scale = v; updateScale() end),
     T("Snow", "Снег на экране", "Работает и при свёрнутом меню"),
     BTN("Сбросить настройки", function()
         C.Fly=false; C.Noclip=false; C.FlyAura=false
@@ -1499,6 +1613,9 @@ local cfgDefs = {
         ACCENT = Color3.fromHex("#a3e635")
         ESP_COLOR = Color3.fromHex("#22d3ee")
         FOV_COLOR = Color3.fromHex("#f8fafc")
+        if previewRef and previewRef.model then
+            pcall(applyPreviewMode, previewRef.model, C.ESPMode)
+        end
         refreshAll()
         local hum = getHum()
         if hum then hum.WalkSpeed = 16; hum.AutoRotate = true end
@@ -1506,9 +1623,7 @@ local cfgDefs = {
 }
 for i, def in ipairs(cfgDefs) do BUILDERS[def.kind](pages.cfg, def, i) end
 
--- ============================================================
--- КНОПКИ ТАБОВ
--- ============================================================
+-- TAB BUTTONS
 for i, tab in ipairs(TABS) do
     local btn = new("TextButton", {
         AutoButtonColor=false, BorderSizePixel=0, LayoutOrder=i,
@@ -1527,7 +1642,7 @@ for i, tab in ipairs(TABS) do
     end)
     onRefresh(function()
         local active = currentTab == tab.id
-        bc.CornerRadius = UDim.new(0, ROW_R.rounded)
+        bc.CornerRadius = UDim.new(0, ROW_R[C.cornersStyle] or ROW_R.rounded)
         btn.BackgroundColor3 = ACCENT
         btn.BackgroundTransparency = active and 0.84 or 1
         local fg = active and ACCENT or TAB_IDLE
@@ -1536,14 +1651,12 @@ for i, tab in ipairs(TABS) do
     end)
 end
 
--- ============================================================
--- ОБНОВЛЕНИЕ ШАПКИ / ОКНА / СТРАНИЦ
--- ============================================================
+-- HEADER / WINDOW / PAGES REFRESH
 onRefresh(function()
-    local bg = BG[C.theme or "dark"] or BG.dark
+    local bg = BG[C.theme] or BG.dark
     window.BackgroundColor3 = bg
     window.BackgroundTransparency = 0.06
-    winCorner.CornerRadius = UDim.new(0, WIN_R[C.cornersStyle or "rounded"])
+    winCorner.CornerRadius = UDim.new(0, WIN_R[C.cornersStyle] or WIN_R.rounded)
     winStroke.Color = ACCENT
     logo.BackgroundColor3 = ACCENT
 
@@ -1551,21 +1664,16 @@ onRefresh(function()
     for _, tab in ipairs(TABS) do
         if tab.id == currentTab then info = tab end
     end
-    titleLabel.Text = info.label
-    local total, enabled = 0, 0
-    for _, key in ipairs({"Enabled","ESP","Fly","Noclip","SpeedOn","AutoJump","ESPHealth","ESPBox","ESPSkeleton","ESPTracers","ESPName","FlyAura","FlyAnim","FlyTilt","AntiAFK","Snow","IgnoreFriends","TeamCheck","DrawFOV"}) do
-        if def and def.key then end
+    if info then
+        titleLabel.Text = info.label
+        subLabel.Text = info.sub
     end
-    subLabel.Text = info.sub
-
     for id, page in pairs(pages) do
         page.Visible = (id == currentTab)
     end
 end)
 
--- ============================================================
--- DRAG ЗА ШАПКУ
--- ============================================================
+-- DRAG
 do
     local dragging, dragStart, startPos = false, nil, nil
     header.InputBegan:Connect(function(i)
@@ -1588,11 +1696,9 @@ do
     end))
 end
 
--- ============================================================
--- X / – / RightShift
--- ============================================================
+-- CLOSE / MIN / HOTKEY
 closeBtn.MouseButton1Click:Connect(function()
-    if _G.AvehAimbotCleanup then _G.AvehAimbotCleanup() end
+    if _G.SynterCleanup then _G.SynterCleanup() end
 end)
 minBtn.MouseButton1Click:Connect(function()
     window.Visible = false
@@ -1604,12 +1710,12 @@ addTrack(UserInputService.InputBegan:Connect(function(i, processed)
     end
 end))
 
--- мобильная кнопка открытия
+-- MOBILE OPEN BUTTON
 if isTouch then
     local openBtn = new("TextButton", {
         AutoButtonColor=false, BorderSizePixel=0,
         Font=Enum.Font.GothamBold, Position=UDim2.fromOffset(12,60),
-        Size=UDim2.fromOffset(40,40), Text="A", TextColor3=ON_TEXT,
+        Size=UDim2.fromOffset(40,40), Text="S", TextColor3=ON_TEXT,
         TextSize=18, Parent=gui, Visible=false,
     })
     corner(openBtn, 12)
@@ -1623,15 +1729,27 @@ if isTouch then
     addTrack(window:GetPropertyChangedSignal("Visible"):Connect(refreshAll))
 end
 
--- ============================================================
--- РЕНДЕР ЛОГИКА
--- ============================================================
+-- RENDER LOOP
 addTrack(RunService.RenderStepped:Connect(function(dt)
+    if C.Snow then
+        dt = math.min(dt, 0.1)
+        local size = vp(); local W, H = size.X, size.Y
+        snowTime = snowTime + dt
+        for _, fl in ipairs(snowFlakes) do
+            fl.y = fl.y + fl.speed * dt
+            if fl.y > H + 5 then
+                fl.y = -fl.size - math.random() * 30
+                fl.x = math.random() * W
+            end
+            local px = fl.x + math.sin(snowTime * fl.freq + fl.phase) * fl.amp
+            fl.gui.Position = UDim2.fromOffset(px, fl.y)
+        end
+    end
     pcall(updateFovCircle, dt)
     pcall(updateESP, dt)
 end))
 
-RunService:BindToRenderStep("AvehAimLoop", Enum.RenderPriority.Camera.Value + 1, function(dt)
+RunService:BindToRenderStep("SynterAimLoop", Enum.RenderPriority.Camera.Value + 1, function(dt)
     if not C.Enabled or not (C.AlwaysAim or C.AimHeld) then
         lockedTarget = nil; return
     end
@@ -1646,11 +1764,9 @@ RunService:BindToRenderStep("AvehAimLoop", Enum.RenderPriority.Camera.Value + 1,
     end)
 end)
 
--- ============================================================
 -- CLEANUP
--- ============================================================
-_G.AvehAimbotCleanup = function()
-    pcall(function() RunService:UnbindFromRenderStep("AvehAimLoop") end)
+_G.SynterCleanup = function()
+    pcall(function() RunService:UnbindFromRenderStep("SynterAimLoop") end)
     stopFlyBV(); clearFlyAura(); stopFlyAnim()
     local hum = getHum()
     if hum then
@@ -1658,10 +1774,8 @@ _G.AvehAimbotCleanup = function()
         hum.WalkSpeed = 16
         if hum.UseJumpPower then hum.JumpPower = 50 end
     end
-    C.SpeedHack = 16; C.SpeedOn = false; C.Enabled = false
-    C.Fly = false; C.Noclip = false; C.AutoJump = false; C.AntiAFK = false
-    musicStop()
-    if musicSound then pcall(function() musicSound:Destroy() end); musicSound = nil end
+    C.SpeedHack=16; C.SpeedOn=false; C.Enabled=false
+    C.Fly=false; C.Noclip=false; C.AutoJump=false; C.AntiAFK=false
     for _, c in ipairs(track) do pcall(function() c:Disconnect() end) end
     local all = {}
     for plr in pairs(espTracked) do table.insert(all, plr) end
@@ -1672,9 +1786,7 @@ _G.AvehAimbotCleanup = function()
     pcall(function() gui:Destroy() end)
 end
 
--- ============================================================
--- СТАРТ
--- ============================================================
+-- START
 refreshFriends()
 pcall(function() LP.FriendStatusChanged:Connect(refreshFriends) end)
 refreshAll()
@@ -1682,4 +1794,4 @@ updateFovCircle(0)
 addTrack(LP.CharacterAdded:Connect(function()
     task.wait(0.3); stopFlyAnim(); updateFovCircle(0)
 end))
-print("[Aveh] v14 Nightfall loaded OK")
+print("[Synter] loaded OK")
