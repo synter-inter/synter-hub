@@ -593,3 +593,767 @@ tabPull.CanvasSize = UDim2.new(0,0,0,130)
 makeToggle(tabAuto,4,"AutoKill (ближний)",function(v) Config.AutoKill=v end)
 makeToggle(tabAuto,32,"AutoWin (всех)",function(v) Config.AutoWin=v end)
 tabAuto.CanvasSize = UDim2.new(0,0,0,64)
+-- ============================================================================
+-- GET ACTIVE TAB (для скролл-полосы)
+-- ============================================================================
+function GetActiveTab()
+    if tabAimbot.Visible then return tabAimbot end
+    if tabESP.Visible then return tabESP end
+    if tabColors.Visible then return tabColors end
+    if tabMisc.Visible then return tabMisc end
+    if tabPull.Visible then return tabPull end
+    if tabAuto.Visible then return tabAuto end
+    return tabAimbot
+end
+
+-- Обновление thumb при скролле
+RunService.RenderStepped:Connect(function()
+    pcall(function()
+        local tab = GetActiveTab()
+        if not tab then return end
+        local maxY = math.max(0, tab.AbsoluteCanvasSize.Y - tab.AbsoluteSize.Y)
+        if maxY <= 0 then
+            scrollThumb.Size = UDim2.new(1,0,1,0)
+            scrollThumb.Position = UDim2.new(0,0,0,0)
+            return
+        end
+        local ratio = tab.AbsoluteSize.Y / tab.AbsoluteCanvasSize.Y
+        local thumbH = math.clamp(ratio, 0.1, 1)
+        local scrollRatio = math.clamp(tab.CanvasPosition.Y / maxY, 0, 1)
+        scrollThumb.Size = UDim2.new(1,0,thumbH,0)
+        scrollThumb.Position = UDim2.new(0,0,scrollRatio * (1 - thumbH),0)
+    end)
+end)
+
+-- ============================================================================
+-- DRAG / RESIZE / Z
+-- ============================================================================
+local menuDragging = false
+local menuDragStart, menuStartPos
+title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        menuDragging = true; menuDragStart = input.Position; menuStartPos = menu.Position
+    end
+end)
+
+local resizing = false
+local resizeStart, resizeStartSize
+resizeHandle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        resizing = true; resizeStart = input.Position; resizeStartSize = menu.AbsoluteSize
+    end
+end)
+
+local btnDragging = false
+local btnWasDragged = false
+local btnDragStart, btnStartPos
+toggleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        btnDragging = true; btnWasDragged = false
+        btnDragStart = input.Position; btnStartPos = toggleBtn.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        local delta
+        if menuDragging and menuDragStart and menuStartPos then
+            delta = input.Position - menuDragStart
+            menu.Position = UDim2.new(menuStartPos.X.Scale, menuStartPos.X.Offset + delta.X, menuStartPos.Y.Scale, menuStartPos.Y.Offset + delta.Y)
+        end
+        if resizing and resizeStart then
+            delta = input.Position - resizeStart
+            local newW = math.clamp(resizeStartSize.X + delta.X, MIN_W, MAX_W)
+            local newH = math.clamp(resizeStartSize.Y + delta.Y, MIN_H, MAX_H)
+            menu.Size = UDim2.new(0, newW, 0, newH)
+        end
+        if btnDragging and btnDragStart and btnStartPos then
+            delta = input.Position - btnDragStart
+            if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then btnWasDragged = true end
+            toggleBtn.Position = UDim2.new(btnStartPos.X.Scale, btnStartPos.X.Offset + delta.X, btnStartPos.Y.Scale, btnStartPos.Y.Offset + delta.Y)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if btnDragging and not btnWasDragged then
+            local open = menu.Size.Y.Offset > 0
+            TweenService:Create(menu, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+                Size = open and UDim2.new(0, START_W, 0, 0) or UDim2.new(0, START_W, 0, START_H)
+            }):Play()
+        end
+        menuDragging = false; menuDragStart = nil; menuStartPos = nil
+        resizing = false; resizeStart = nil
+        btnDragging = false; btnDragStart = nil; btnStartPos = nil
+    end
+end)
+
+-- ============================================================================
+-- NOCLIP / INVISIBLE / INFJUMP
+-- ============================================================================
+local noclipConn = nil
+function SetNoclip(state)
+    if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
+    if not state then
+        local char = LP.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then pcall(function() part.CanCollide = true end) end
+            end
+        end
+        return
+    end
+    noclipConn = RunService.Stepped:Connect(function()
+        local char = LP.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide then
+                    pcall(function() part.CanCollide = false end)
+                end
+            end
+        end
+    end)
+end
+
+local invisConn = nil
+local invisOriginalTransp = {}
+local invisOriginalName = nil
+local invisOriginalHealth = nil
+function SetInvisible(state)
+    if invisConn then invisConn:Disconnect(); invisConn = nil end
+    local char = LP.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not state then
+        for part, orig in pairs(invisOriginalTransp) do
+            if part and part.Parent then pcall(function() part.Transparency = orig end) end
+        end
+        invisOriginalTransp = {}
+        if hum and invisOriginalName then pcall(function() hum.DisplayDistanceType = invisOriginalName end) end
+        if hum and invisOriginalHealth then pcall(function() hum.HealthDisplayType = invisOriginalHealth end) end
+        invisOriginalName = nil; invisOriginalHealth = nil
+        return
+    end
+    if hum then
+        invisOriginalName = hum.DisplayDistanceType
+        invisOriginalHealth = hum.HealthDisplayType
+        pcall(function()
+            hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+            hum.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+        end)
+    end
+    invisConn = RunService.Stepped:Connect(function()
+        local c = LP.Character
+        if not c then return end
+        for _, part in ipairs(c:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if invisOriginalTransp[part] == nil then invisOriginalTransp[part] = part.Transparency end
+                pcall(function() part.Transparency = 1; part.LocalTransparencyModifier = 1 end)
+            elseif part:IsA("Decal") or part:IsA("Texture") then
+                if invisOriginalTransp[part] == nil then invisOriginalTransp[part] = part.Transparency end
+                pcall(function() part.Transparency = 1 end)
+            end
+        end
+        local h = c:FindFirstChildOfClass("Humanoid")
+        if h then
+            pcall(function()
+                h.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+                h.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+            end)
+        end
+    end)
+end
+
+UserInputService.JumpRequest:Connect(function()
+    if not Config.InfiniteJump then return end
+    local char = LP.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end) end
+end)
+
+-- ============================================================================
+-- SILENT AIM
+-- ============================================================================
+local function GetSilentTarget()
+    local center = Camera.ViewportSize / 2
+    local closest, dist = nil, math.huge
+    for _, p in ipairs(Players:GetPlayers()) do
+        if IsPlayerInGame(p) then
+            local role = RoleCache[p] or GetRole(p)
+            if role == Config.TargetRole then
+                local head = p.Character:FindFirstChild("Head")
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if head and hum and hum.Health > 0 then
+                    local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                    if onScreen then
+                        local mag = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                        if mag <= Config.SilentFOV and mag < dist then dist = mag; closest = head end
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+pcall(function()
+    local oldIndex
+    oldIndex = hookmetamethod(game, "__index", function(self, key)
+        if not Config.SilentAim then return oldIndex(self, key) end
+        if self == game:GetService("Mouse") then
+            if key == "Hit" then
+                local target = GetSilentTarget()
+                if target then return CFrame.new(target.Position) end
+            elseif key == "UnitRay" then
+                local target = GetSilentTarget()
+                if target then return Ray.new(Camera.CFrame.Position, (target.Position - Camera.CFrame.Position).Unit * 1000) end
+            end
+        end
+        return oldIndex(self, key)
+    end)
+end)
+
+-- ============================================================================
+-- FOV + ESP + CHAMS (с glow)
+-- ============================================================================
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1; FOVCircle.NumSides = 40; FOVCircle.Filled = false
+FOVCircle.Radius = Config.FOV; FOVCircle.Color = RoleColors.Murderer; FOVCircle.Visible = false
+
+local SilentFOVCircle = Drawing.new("Circle")
+SilentFOVCircle.Thickness = 1; SilentFOVCircle.NumSides = 40; SilentFOVCircle.Filled = false
+SilentFOVCircle.Radius = Config.SilentFOV; SilentFOVCircle.Color = Color3.fromRGB(255,200,50); SilentFOVCircle.Visible = false
+
+local ESP = {}
+local Chams = {}
+
+local function CreateESP(plr)
+    if plr == LP then return end
+    local d = { Box = Drawing.new("Square"), Text = Drawing.new("Text") }
+    d.Box.Visible = false; d.Box.Thickness = 1; d.Box.Filled = false
+    d.Text.Visible = false; d.Text.Center = true; d.Text.Outline = true; d.Text.Size = 12
+    d.Text.Color = Color3.fromRGB(255,255,255)
+    ESP[plr] = d
+end
+
+for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
+Players.PlayerAdded:Connect(function(p) CreateESP(p) end)
+Players.PlayerRemoving:Connect(function(p)
+    if ESP[p] then
+        pcall(function() ESP[p].Box:Remove() end)
+        pcall(function() ESP[p].Text:Remove() end)
+        ESP[p] = nil
+    end
+    RoleCache[p] = nil
+    if Chams[p] then pcall(function() Chams[p]:Destroy() end); Chams[p] = nil end
+end)
+
+local function ApplyChams(plr, role)
+    if plr == LP or not plr.Character then return end
+    local hl = Chams[plr]
+    if not hl or hl.Parent ~= plr.Character then
+        if hl then pcall(function() hl:Destroy() end) end
+        hl = Instance.new("Highlight")
+        hl.Name = "ZenitChams"
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Parent = plr.Character
+        Chams[plr] = hl
+    end
+    local baseColor = RoleColors[role] or RoleColors.Innocent
+    -- glow: осветляем цвет для контура
+    local glowColor = baseColor:Lerp(Color3.new(1,1,1), 0.5)
+    hl.FillTransparency = Config.ChamsTransp
+    hl.FillColor = baseColor
+    hl.OutlineTransparency = 0
+    hl.OutlineColor = glowColor
+end
+
+local function RemoveChams(plr)
+    local hl = Chams[plr]
+    if hl then pcall(function() hl:Destroy() end); Chams[plr] = nil end
+end
+
+-- ============================================================================
+-- КЭШ МОНЕТ (с raycast-фиксом)
+-- ============================================================================
+local CoinCache = {}
+local lastCoinCache = 0
+local function RefreshCoinCache()
+    CoinCache = {}
+    local seen = {}
+    local function add(obj)
+        if obj and not seen[obj] and (obj:IsA("BasePart") or obj:IsA("MeshPart")) then
+            seen[obj] = true; table.insert(CoinCache, obj)
+        end
+    end
+    local folder = Workspace:FindFirstChild("Coins")
+    if folder then for _, c in ipairs(folder:GetChildren()) do add(c) end end
+    for _, c in ipairs(Workspace:GetChildren()) do
+        local n = c.Name:lower()
+        if n == "coin" or n:find("coin") then add(c) end
+    end
+    lastCoinCache = tick()
+end
+
+local function CollectCoinFast()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum or myHum.Health <= 0 then return end
+    if #CoinCache == 0 or (tick() - lastCoinCache) > 1 then RefreshCoinCache() end
+    local nearest, nearDist = nil, math.huge
+    for _, c in ipairs(CoinCache) do
+        if c and c.Parent then
+            local d = (c.Position - myHRP.Position).Magnitude
+            if d < nearDist then nearDist = d; nearest = c end
+        end
+    end
+    if not nearest then return end
+    -- raycast-проверка: не тащим в стену
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {myChar}
+    params.IgnoreWater = true
+    local dir = nearest.Position - myHRP.Position
+    local hit = Workspace:Raycast(myHRP.Position, dir + Vector3.new(0,3,0), params)
+    if hit and (hit.Position - myHRP.Position).Magnitude < dir.Magnitude - 1 then
+        return -- стена между нами и монетой
+    end
+    pcall(function() myHRP.CFrame = CFrame.new(nearest.Position + Vector3.new(0,3,0)) end)
+end
+
+-- ============================================================================
+-- TP
+-- ============================================================================
+function TeleportToCoin()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+    RefreshCoinCache()
+    local nearest, nearDist = nil, math.huge
+    for _, c in ipairs(CoinCache) do
+        if c and c.Parent then
+            local d = (c.Position - myHRP.Position).Magnitude
+            if d < nearDist then nearDist = d; nearest = c end
+        end
+    end
+    if nearest then pcall(function() myHRP.CFrame = CFrame.new(nearest.Position + Vector3.new(0,3,0)) end) end
+end
+
+local function FindWeaponPos(names, fromPos)
+    local nearest, nearDist = nil, math.huge
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Tool") then
+            for _, name in ipairs(names) do
+                if obj.Name == name then
+                    local pos
+                    if obj:FindFirstChild("Handle") then pos = obj.Handle.Position end
+                    if pos then
+                        local d = (pos - fromPos).Magnitude
+                        if d < nearDist then nearDist = d; nearest = pos end
+                    end
+                    break
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+function TeleportToGun()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+    local pos = FindWeaponPos(GunNames, myHRP.Position)
+    if pos then pcall(function() myHRP.CFrame = CFrame.new(pos + Vector3.new(0,3,0)) end) end
+end
+
+function TeleportToRevolver()
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+    local pos = FindWeaponPos({"Revolver","Gun","Silver"}, myHRP.Position)
+    if pos then pcall(function() myHRP.CFrame = CFrame.new(pos + Vector3.new(0,3,0)) end) end
+end
+
+-- ============================================================================
+-- FREEZE (визуально + Anchored)
+-- ============================================================================
+local frozenPlayers = {}
+function ApplyFreezeAll(state)
+    if not state then
+        for p, data in pairs(frozenPlayers) do
+            if p.Character then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                if hum then pcall(function() hum.WalkSpeed = data.walk; hum.JumpPower = data.jump end) end
+                if hrp then pcall(function() hrp.Anchored = false end) end
+            end
+        end
+        frozenPlayers = {}
+        return
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and IsPlayerInGame(p) then
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hrp then
+                frozenPlayers[p] = {walk = hum.WalkSpeed, jump = hum.JumpPower}
+                pcall(function() hum.WalkSpeed = 0; hum.JumpPower = 0; hrp.Anchored = true end)
+            end
+        end
+    end
+end
+
+-- ============================================================================
+-- AUTOKILL
+-- ============================================================================
+local lastKill = 0
+local function TryAutoKill()
+    local now = tick()
+    if now - lastKill < 0.8 then return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum or myHum.Health <= 0 then return end
+    local knife = myChar:FindFirstChild("Knife")
+    if not knife then
+        local bp = LP:FindFirstChild("Backpack")
+        if bp then knife = bp:FindFirstChild("Knife") end
+    end
+    if not knife then return end
+    local target, targetDist = nil, math.huge
+    for _, p in ipairs(Players:GetPlayers()) do
+        if IsPlayerInGame(p) then
+            local role = RoleCache[p] or GetRole(p)
+            if role ~= "Murderer" then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if hrp and hum and hum.Health > 0 then
+                    local d = (hrp.Position - myHRP.Position).Magnitude
+                    if d < targetDist then targetDist = d; target = hrp end
+                end
+            end
+        end
+    end
+    if not target then return end
+    pcall(function()
+        myHRP.CFrame = target.CFrame * CFrame.new(0,0,2.5)
+        if knife.Parent ~= myChar then knife.Parent = myChar end
+        task.wait(0.08)
+        if knife.Activate then knife:Activate() end
+        if knife:FindFirstChild("Activated") then knife:Activated() end
+    end)
+    lastKill = now
+end
+
+-- ============================================================================
+-- AUTOWIN
+-- Sheriff: silent aim + Activate
+-- Murderer: TP + knife
+-- Innocent: кручение + Velocity вниз (серверный откат — ограничение)
+-- ============================================================================
+local lastWinTick = 0
+local spinAngle = 0
+local function GetMyRole()
+    local myChar = LP.Character
+    if not myChar then return "Innocent" end
+    local bp = LP:FindFirstChild("Backpack")
+    if hasTool(myChar,{"Knife"}) or hasTool(bp,{"Knife"}) then return "Murderer" end
+    if hasTool(myChar,{"Gun","Revolver","Silver"}) or hasTool(bp,{"Gun","Revolver","Silver"}) then return "Sheriff" end
+    local attr = LP:GetAttribute("Role")
+    if attr then return attr end
+    return "Innocent"
+end
+
+local function TryAutoWin()
+    local now = tick()
+    if now - lastWinTick < 0.3 then return end
+    lastWinTick = now
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum or myHum.Health <= 0 then return end
+    local myRole = GetMyRole()
+    if myRole == "Sheriff" then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if IsPlayerInGame(p) then
+                local role = RoleCache[p] or GetRole(p)
+                if role == "Murderer" then
+                    local head = p.Character:FindFirstChild("Head")
+                    local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                    if head and hum and hum.Health > 0 then
+                        pcall(function()
+                            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
+                            local gun = myChar:FindFirstChild("Gun") or myChar:FindFirstChild("Revolver") or myChar:FindFirstChild("Silver")
+                            if not gun then
+                                local bp = LP:FindFirstChild("Backpack")
+                                if bp then
+                                    gun = bp:FindFirstChild("Gun") or bp:FindFirstChild("Revolver") or bp:FindFirstChild("Silver")
+                                    if gun then gun.Parent = myChar end
+                                end
+                            end
+                            if gun then
+                                if gun.Activate then gun:Activate() end
+                                if gun:FindFirstChild("Activated") then gun:Activated() end
+                            end
+                        end)
+                        return
+                    end
+                end
+            end
+        end
+    elseif myRole == "Murderer" then
+        local target, targetDist = nil, math.huge
+        for _, p in ipairs(Players:GetPlayers()) do
+            if IsPlayerInGame(p) then
+                local role = RoleCache[p] or GetRole(p)
+                if role ~= "Murderer" then
+                    local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                    local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                    if hrp and hum and hum.Health > 0 then
+                        local d = (hrp.Position - myHRP.Position).Magnitude
+                        if d < targetDist then targetDist = d; target = hrp end
+                    end
+                end
+            end
+        end
+        if not target then return end
+        local knife = myChar:FindFirstChild("Knife")
+        if not knife then
+            local bp = LP:FindFirstChild("Backpack")
+            if bp then knife = bp:FindFirstChild("Knife") end
+        end
+        pcall(function()
+            myHRP.CFrame = target.CFrame * CFrame.new(0,0,2.5)
+            if knife then
+                if knife.Parent ~= myChar then knife.Parent = myChar end
+                task.wait(0.08)
+                if knife.Activate then knife:Activate() end
+                if knife:FindFirstChild("Activated") then knife:Activated() end
+            end
+        end)
+    else
+        local murderer, murdererDist = nil, math.huge
+        for _, p in ipairs(Players:GetPlayers()) do
+            if IsPlayerInGame(p) then
+                local role = RoleCache[p] or GetRole(p)
+                if role == "Murderer" then
+                    local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                    local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                    if hrp and hum and hum.Health > 0 then
+                        local d = (hrp.Position - myHRP.Position).Magnitude
+                        if d < murdererDist then murdererDist = d; murderer = hrp end
+                    end
+                end
+            end
+        end
+        if murderer then
+            spinAngle = spinAngle + 0.6
+            local offset = CFrame.Angles(0, spinAngle, 0) * CFrame.new(0,0,-2)
+            pcall(function() myHRP.CFrame = murderer.CFrame * offset end)
+            pcall(function()
+                murderer.AssemblyLinearVelocity = Vector3.new(0,-5000,0)
+            end)
+            pcall(function()
+                for _, t in ipairs(myChar:GetChildren()) do
+                    if t:IsA("Tool") and t.Activate then t:Activate() end
+                end
+            end)
+        end
+    end
+end
+
+-- ============================================================================
+-- AUTODODGE
+-- ============================================================================
+local lastDodge = 0
+local function FindSafeSpot(fromPos, murdererPos, range)
+    local myChar = LP.Character
+    local best, bestDist = nil, -1
+    for i = 1, 24 do
+        local angle = math.random() * math.pi * 2
+        local dist = range * (0.6 + math.random() * 0.4)
+        local offset = Vector3.new(math.cos(angle)*dist, 0, math.sin(angle)*dist)
+        local probe = fromPos + offset
+        if (probe - murdererPos).Magnitude < 6 then continue end
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.FilterDescendantsInstances = {myChar}
+        params.IgnoreWater = true
+        local downResult = Workspace:Raycast(probe + Vector3.new(0,2,0), Vector3.new(0,-10,0), params)
+        local upResult = Workspace:Raycast(probe + Vector3.new(0,1,0), Vector3.new(0,6,0), params)
+        if downResult and not upResult then
+            if math.abs(downResult.Position.Y - fromPos.Y) <= 6 then
+                local nd = (probe - murdererPos).Magnitude
+                if nd > bestDist then bestDist = nd; best = downResult.Position + Vector3.new(0,3,0) end
+            end
+        end
+    end
+    return best
+end
+local function TryDodge()
+    local now = tick()
+    if now - lastDodge < 1.5 then return end
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum or myHum.Health <= 0 then return end
+    local nearest, nearestDist = nil, math.huge
+    for _, p in ipairs(Players:GetPlayers()) do
+        if IsPlayerInGame(p) then
+            local role = RoleCache[p] or GetRole(p)
+            if role == "Murderer" then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if hrp and hum and hum.Health > 0 then
+                    local d = (hrp.Position - myHRP.Position).Magnitude
+                    if d < nearestDist then nearestDist = d; nearest = hrp end
+                end
+            end
+        end
+    end
+    if not nearest or nearestDist > Config.DodgeRadius then return end
+    local safe = FindSafeSpot(myHRP.Position, nearest.Position, Config.DodgeRange)
+    if safe then pcall(function() myHRP.CFrame = CFrame.new(safe) end); lastDodge = now end
+end
+
+-- ============================================================================
+-- АИМБОТ
+-- ============================================================================
+local function IsVisible(head)
+    if not Config.WallCheck then return true end
+    local origin = Camera.CFrame.Position
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    local filter = {LP.Character}
+    if head and head.Parent then table.insert(filter, head.Parent) end
+    params.FilterDescendantsInstances = filter
+    params.IgnoreWater = true
+    return Workspace:Raycast(origin, head.Position - origin, params) == nil
+end
+local function GetTarget()
+    local closest, dist = nil, math.huge
+    local center = Camera.ViewportSize / 2
+    for _, p in ipairs(Players:GetPlayers()) do
+        if IsPlayerInGame(p) then
+            local role = RoleCache[p] or GetRole(p)
+            if role == Config.TargetRole then
+                local head = p.Character:FindFirstChild("Head")
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if head and hum and hum.Health > 0 then
+                    local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                    if onScreen then
+                        local mag = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                        if mag <= Config.FOV and mag < dist and IsVisible(head) then dist = mag; closest = head end
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- ============================================================================
+-- ГЛАВНЫЙ ЦИКЛ
+-- ============================================================================
+local coinTimer, dodgeTimer, revolverTimer = 0, 0, 0
+RunService.RenderStepped:Connect(function(dt)
+    pcall(function()
+        UpdateRoleCache()
+        FOVCircle.Position = Camera.ViewportSize / 2
+        FOVCircle.Radius = Config.FOV
+        FOVCircle.Visible = Config.Aimbot
+        FOVCircle.Color = RoleColors[Config.TargetRole]
+        SilentFOVCircle.Position = Camera.ViewportSize / 2
+        SilentFOVCircle.Radius = Config.SilentFOV
+        SilentFOVCircle.Visible = Config.SilentAim
+
+        if Config.Aimbot then
+            local myHum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+            if myHum and myHum.Health > 0 then
+                local target = GetTarget()
+                if target then
+                    local lookAt = CFrame.lookAt(Camera.CFrame.Position, target.Position)
+                    if Config.Smooth <= 0 then
+                        Camera.CFrame = lookAt
+                    else
+                        local alpha = math.clamp(1 - (Config.Smooth/100), 0.01, 1) * math.clamp(dt*60, 0.1, 2)
+                        Camera.CFrame = Camera.CFrame:Lerp(lookAt, alpha)
+                    end
+                end
+            end
+        end
+
+        for p, d in pairs(ESP) do
+            local char = p.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if Config.ESP and IsPlayerInGame(p) and hrp and hum and hum.Health > 0 then
+                local role = RoleCache[p] or "Innocent"
+                local top = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
+                local bot = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0,3,0))
+                if top.Z > 0 and bot.Z > 0 then
+                    local h = math.abs(bot.Y - top.Y)
+                    local w = h * 0.6
+                    local x = (top.X + bot.X)/2 - w/2
+                    local y = top.Y
+                    if Config.ESP_Box then
+                        d.Box.Size = Vector2.new(w, h)
+                        d.Box.Position = Vector2.new(x, y)
+                        d.Box.Color = RoleColors[role]
+                        d.Box.Visible = true
+                    else d.Box.Visible = false end
+                    local lines = {}
+                    if Config.ESP_Name then table.insert(lines, p.Name) end
+                    if Config.ESP_Role then table.insert(lines, role) end
+                    if Config.ESP_Dist then
+                        table.insert(lines, math.floor((Camera.CFrame.Position - hrp.Position).Magnitude) .. "m")
+                    end
+                    if #lines > 0 then
+                        d.Text.Text = table.concat(lines, " | ")
+                        d.Text.Position = Vector2.new(x + w/2, y - 26)
+                        d.Text.Color = RoleColors[role]
+                        d.Text.Visible = true
+                    else d.Text.Visible = false end
+                else
+                    d.Box.Visible = false; d.Text.Visible = false
+                end
+            else
+                d.Box.Visible = false; d.Text.Visible = false
+            end
+            if Config.Chams and IsPlayerInGame(p) then
+                ApplyChams(p, RoleCache[p] or "Innocent")
+            else
+                RemoveChams(p)
+            end
+        end
+
+        if Config.AutoCoin then
+            coinTimer = coinTimer + dt
+            if coinTimer >= 0.05 then coinTimer = 0; CollectCoinFast() end
+        end
+        if Config.AutoDodge then
+            dodgeTimer = dodgeTimer + dt
+            if dodgeTimer >= 0.1 then dodgeTimer = 0; TryDodge() end
+        end
+        if Config.AutoKill then TryAutoKill() end
+        if Config.AutoWin then TryAutoWin() end
+        if Config.AutoTPRevolver then
+            revolverTimer = revolverTimer + dt
+            if revolverTimer >= 2 then
+                revolverTimer = 0
+                local myChar = LP.Character
+                local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                if myHRP then
+                    local pos = FindWeaponPos({"Revolver","Gun","Silver"}, myHRP.Position)
+                    if pos then pcall(function() myHRP.CFrame = CFrame.new(pos + Vector3.new(0,3,0)) end) end
+                end
+            end
+        end
+    end)
+end)
+
+ShowTab("Aim")
+pcall(function() StarterGui:SetCore("SendNotification", {Title="Zenit MM2", Text="v15: Pull по ролям, скролл-полоса, Chams glow", Duration=4}) end)
