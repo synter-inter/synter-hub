@@ -1,4 +1,9 @@
--- ZENIT MM2 // v15
+-- ============================================================================
+-- ZENIT MM2 // v16 FULL
+-- Скролл-полоса с драгом, экран-чек, Bring All, Chams glow
+-- ЧАСТЬ 1/3
+-- ============================================================================
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -16,7 +21,7 @@ if not Drawing then
 end
 
 -- CLEANUP
-local OUR_GUI_NAME = "ZenitMM2_v15"
+local OUR_GUI_NAME = "ZenitMM2_v16"
 local function LooksCheatGUI(obj)
     if not obj:IsA("ScreenGui") then return false end
     if obj.Name == OUR_GUI_NAME or obj.Name == "RobloxGui" then return false end
@@ -49,10 +54,10 @@ CleanupOldGUIs()
 -- КОНФИГ
 local Config = {
     Aimbot=false, TargetRole="Murderer", ESP=false, ESP_Box=true, ESP_Name=true, ESP_Role=true, ESP_Dist=true,
-    Chams=false, ChamsTransp=0.75, ChamsGlow=true, SilentAim=false, SilentFOV=200,
+    Chams=false, ChamsTransp=0.7, ChamsGlow=true, SilentAim=false, SilentFOV=200,
     AutoCoin=false, WallCheck=true, AutoDodge=false, AutoKill=false, AutoWin=false,
     FreezeAll=false, AutoTPRevolver=false, Noclip=false, InfiniteJump=false, Invisible=false,
-    PullRole="All", BringMode=false, DodgeRadius=8, DodgeRange=25, FOV=150, Smooth=0
+    PullRole="All", DodgeRadius=8, DodgeRange=25, FOV=150, Smooth=0
 }
 local RoleColors = {
     Murderer = Color3.fromRGB(255,50,50),
@@ -61,26 +66,25 @@ local RoleColors = {
 }
 local GunNames = {"Gun","Revolver","Silver","Knife"}
 
--- BLOOM для свечения
+-- BLOOM для свечения чамсов
 local function EnsureBloom()
-    local existing = Lighting:FindFirstChild("ZenitBloom")
-    if not existing then
+    if not Lighting:FindFirstChild("ZenitBloom") then
         local bloom = Instance.new("BloomEffect")
         bloom.Name = "ZenitBloom"
-        bloom.Intensity = 0.8
+        bloom.Intensity = 1
         bloom.Size = 24
-        bloom.Threshold = 0.9
+        bloom.Threshold = 0.8
         bloom.Parent = Lighting
     end
 end
 local function RemoveBloom()
-    local existing = Lighting:FindFirstChild("ZenitBloom")
-    if existing then existing:Destroy() end
+    local b = Lighting:FindFirstChild("ZenitBloom")
+    if b then b:Destroy() end
 end
 
--- TOUCHPAN
+-- TOUCHPAN (свайп)
 local ActiveScroll = nil
-UserInputService.TouchPan:Connect(function(touchPositions, totalTranslation, velocity)
+UserInputService.TouchPan:Connect(function(tp, totalTranslation, velocity)
     if not ActiveScroll then return end
     local maxY = math.max(0, ActiveScroll.AbsoluteCanvasSize.Y - ActiveScroll.AbsoluteSize.Y)
     if maxY <= 0 then return end
@@ -152,6 +156,7 @@ local gui = Instance.new("ScreenGui")
 gui.Name = OUR_GUI_NAME
 gui.ResetOnSpawn = false
 gui.DisplayOrder = 999
+gui.IgnoreGuiInset = true
 gui.Parent = GetGuiParent()
 
 local toggleBtn = Instance.new("TextButton")
@@ -190,7 +195,7 @@ title.Size = UDim2.new(1,0,0,30)
 title.Position = UDim2.new(0,0,0,0)
 title.BackgroundColor3 = Color3.fromRGB(35,35,45)
 title.BackgroundTransparency = 0.2
-title.Text = "ZENIT MM2 v15"
+title.Text = "ZENIT MM2 v16"
 title.TextColor3 = Color3.fromRGB(255,0,100)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 13
@@ -214,55 +219,33 @@ resizeHandle.Parent = menu
 Instance.new("UICorner", resizeHandle).CornerRadius = UDim.new(0,4)
 
 local tabsBar = Instance.new("Frame")
-tabsBar.Size = UDim2.new(1,-16,0,26)
+tabsBar.Size = UDim2.new(1,-26,0,26)
 tabsBar.Position = UDim2.new(0,8,0,34)
 tabsBar.BackgroundTransparency = 1
 tabsBar.Parent = menu
+
+-- СКРОЛЛ-ПОЛОСА СПРАВА
+local scrollBarBg = Instance.new("Frame")
+scrollBarBg.Size = UDim2.new(0,8,1,-70)
+scrollBarBg.Position = UDim2.new(1,-16,0,66)
+scrollBarBg.BackgroundColor3 = Color3.fromRGB(30,30,40)
+scrollBarBg.BorderSizePixel = 0
+scrollBarBg.Parent = menu
+Instance.new("UICorner", scrollBarBg).CornerRadius = UDim.new(0,4)
+
+local scrollThumb = Instance.new("Frame")
+scrollThumb.Size = UDim2.new(1,0,1,0)
+scrollThumb.Position = UDim2.new(0,0,0,0)
+scrollThumb.BackgroundColor3 = Color3.fromRGB(255,0,100)
+scrollThumb.BorderSizePixel = 0
+scrollThumb.Parent = scrollBarBg
+Instance.new("UICorner", scrollThumb).CornerRadius = UDim.new(0,4)
 
 local tabContainer = Instance.new("Frame")
 tabContainer.Size = UDim2.new(1,-30,1,-66)
 tabContainer.Position = UDim2.new(0,8,0,64)
 tabContainer.BackgroundTransparency = 1
 tabContainer.Parent = menu
-
--- СКРОЛЛ-ПОЛОСА СПРАВА
-local scrollBarBg = Instance.new("Frame")
-scrollBarBg.Size = UDim2.new(0,6,1,-66)
-scrollBarBg.Position = UDim2.new(1,-14,0,64)
-scrollBarBg.BackgroundColor3 = Color3.fromRGB(40,40,50)
-scrollBarBg.BorderSizePixel = 0
-scrollBarBg.Parent = menu
-Instance.new("UICorner", scrollBarBg).CornerRadius = UDim.new(0,3)
-
-local scrollThumb = Instance.new("Frame")
-scrollThumb.Size = UDim2.new(1,0,0.3,0)
-scrollThumb.Position = UDim2.new(0,0,0,0)
-scrollThumb.BackgroundColor3 = Color3.fromRGB(255,0,100)
-scrollThumb.BorderSizePixel = 0
-scrollThumb.Parent = scrollBarBg
-Instance.new("UICorner", scrollThumb).CornerRadius = UDim.new(0,3)
-
-local draggingThumb = false
-scrollThumb.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingThumb = true
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingThumb = false
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if draggingThumb and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local rel = math.clamp((input.Position.Y - scrollBarBg.AbsolutePosition.Y)/scrollBarBg.AbsoluteSize.Y,0,1)
-        local tab = GetActiveTab()
-        if tab then
-            local maxY = math.max(0, tab.AbsoluteCanvasSize.Y - tab.AbsoluteSize.Y)
-            tab.CanvasPosition = Vector2.new(0, rel * maxY)
-        end
-    end
-end)
 
 local function makeScrollTab(parent)
     local s = Instance.new("ScrollingFrame")
@@ -284,7 +267,12 @@ local tabMisc   = makeScrollTab(tabContainer)
 local tabPull   = makeScrollTab(tabContainer)
 local tabAuto   = makeScrollTab(tabContainer)
 local allTabs = {tabAimbot, tabESP, tabColors, tabMisc, tabPull, tabAuto}
-for _, t in ipairs(allTabs) do t.Visible = false end
+for _, t in ipairs(allTabs) do
+    t.Visible = false
+    t.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then ActiveScroll = t end
+    end)
+end
 tabAimbot.Visible = true
 
 local tabButtons = {}
@@ -320,7 +308,11 @@ makeTabBtn(1,6,"ESP",  function() ShowTab("ESP")  end)
 makeTabBtn(2,6,"Clr",  function() ShowTab("Clr")  end)
 makeTabBtn(3,6,"Misc", function() ShowTab("Misc") end)
 makeTabBtn(4,6,"Pull", function() ShowTab("Pull") end)
-makeTabBtn(5,6,"Auto", function() ShowTab("Auto") end)-- ХЕЛПЕРЫ
+makeTabBtn(5,6,"Auto", function() ShowTab("Auto") end)
+-- ЧАСТЬ 1/3 КОНЕЦ-- ЧАСТЬ 2/3
+-- ============================================================================
+-- ХЕЛПЕРЫ
+-- ============================================================================
 local function makeToggle(parent, yPos, text, callback, defaultState)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1,-8,0,24)
@@ -401,9 +393,9 @@ local function makeSlider(parent, yLabel, yBar, labelText, min, max, default, ca
     end)
 end
 
--- AIM
-makeToggle(tabAimbot,4,"Aimbot",function(v) Config.Aimbot=v end)
-makeToggle(tabAimbot,32,"WallCheck",function(v) Config.WallCheck=v end,true)
+-- ============================================================================
+-- ВКЛАДКА AIM
+-- ============================================================================
 local roleBtn = Instance.new("TextButton")
 roleBtn.Size = UDim2.new(1,-8,0,24)
 roleBtn.Position = UDim2.new(0,4,0,60)
@@ -424,6 +416,8 @@ roleBtn.MouseButton1Click:Connect(function()
     roleBtn.Text = "Target: "..Config.TargetRole
     roleBtn.TextColor3 = RoleColors[Config.TargetRole]
 end)
+makeToggle(tabAimbot,4,"Aimbot",function(v) Config.Aimbot=v end)
+makeToggle(tabAimbot,32,"WallCheck",function(v) Config.WallCheck=v end,true)
 makeSlider(tabAimbot,92,108,"FOV",50,500,150,function(v) Config.FOV=v end)
 makeSlider(tabAimbot,124,140,"Smooth",0,100,0,function(v) Config.Smooth=v end)
 makeToggle(tabAimbot,164,"AutoDodge",function(v) Config.AutoDodge=v end)
@@ -433,9 +427,11 @@ makeToggle(tabAimbot,264,"SilentAim",function(v) Config.SilentAim=v end)
 makeSlider(tabAimbot,296,312,"SilentFOV",50,500,200,function(v) Config.SilentFOV=v end)
 tabAimbot.CanvasSize = UDim2.new(0,0,0,340)
 
--- ESP (с Bloom)
+-- ============================================================================
+-- ВКЛАДКА ESP
+-- ============================================================================
 makeToggle(tabESP,4,"ESP",function(v) Config.ESP=v end)
-makeToggle(tabESP,32,"Chams (Blur)",function(v)
+makeToggle(tabESP,32,"Chams (Glow)",function(v)
     Config.Chams=v
     if v and Config.ChamsGlow then EnsureBloom() else RemoveBloom() end
 end)
@@ -447,10 +443,12 @@ makeToggle(tabESP,88,"ESP Box",function(v) Config.ESP_Box=v end,true)
 makeToggle(tabESP,116,"ESP Name",function(v) Config.ESP_Name=v end,true)
 makeToggle(tabESP,144,"ESP Role",function(v) Config.ESP_Role=v end,true)
 makeToggle(tabESP,172,"ESP Distance",function(v) Config.ESP_Dist=v end,true)
-makeSlider(tabESP,204,220,"ChamsTransp",0,100,75,function(v) Config.ChamsTransp=v/100 end)
+makeSlider(tabESP,204,220,"ChamsTransp",0,100,70,function(v) Config.ChamsTransp=v/100 end)
 tabESP.CanvasSize = UDim2.new(0,0,0,250)
 
--- ЦВЕТА
+-- ============================================================================
+-- ВКЛАДКА ЦВЕТА
+-- ============================================================================
 local presetColors = {
     Color3.fromRGB(255,50,50), Color3.fromRGB(50,150,255), Color3.fromRGB(50,255,50),
     Color3.fromRGB(255,200,50), Color3.fromRGB(200,50,255), Color3.fromRGB(50,255,255),
@@ -510,12 +508,24 @@ local function makeColorRow(parent, yPos, roleName)
         end
     end)
 end
+local colorLbl = Instance.new("TextLabel")
+colorLbl.Size = UDim2.new(1,-8,0,20)
+colorLbl.Position = UDim2.new(0,4,0,0)
+colorLbl.BackgroundTransparency = 1
+colorLbl.Text = "Цвета ролей (тап на квадрат)"
+colorLbl.TextColor3 = Color3.fromRGB(200,200,200)
+colorLbl.Font = Enum.Font.GothamBold
+colorLbl.TextSize = 10
+colorLbl.TextXAlignment = Enum.TextXAlignment.Left
+colorLbl.Parent = tabColors
 makeColorRow(tabColors,26,"Murderer")
 makeColorRow(tabColors,56,"Sheriff")
 makeColorRow(tabColors,86,"Innocent")
 tabColors.CanvasSize = UDim2.new(0,0,0,140)
 
--- MISC
+-- ============================================================================
+-- ВКЛАДКА MISC
+-- ============================================================================
 makeToggle(tabMisc,4,"AutoCoin",function(v) Config.AutoCoin=v end)
 makeToggle(tabMisc,32,"FreezeAll",function(v) Config.FreezeAll=v; if ApplyFreezeAll then ApplyFreezeAll(v) end end)
 makeToggle(tabMisc,60,"AutoTP Revolver",function(v) Config.AutoTPRevolver=v end)
@@ -528,7 +538,9 @@ makeButton(tabMisc,232,"TP to Revolver",function() if TeleportToRevolver then Te
 makeButton(tabMisc,260,"Cleanup GUIs",function() CleanupOldGUIs() end)
 tabMisc.CanvasSize = UDim2.new(0,0,0,295)
 
--- PULL (по ролям)
+-- ============================================================================
+-- ВКЛАДКА PULL (по ролям + ALL)
+-- ============================================================================
 local pullRoleBtn = Instance.new("TextButton")
 pullRoleBtn.Size = UDim2.new(1,-8,0,24)
 pullRoleBtn.Position = UDim2.new(0,4,0,4)
@@ -549,6 +561,7 @@ pullRoleBtn.MouseButton1Click:Connect(function()
     pullRoleBtn.Text = "Pull Role: "..Config.PullRole
     pullRoleBtn.TextColor3 = Config.PullRole == "All" and Color3.fromRGB(200,200,200) or RoleColors[Config.PullRole]
 end)
+
 local isBringing = false
 local bringConn = nil
 local function StopBring()
@@ -573,28 +586,35 @@ local function StartBring()
                 if Config.PullRole == "All" or role == Config.PullRole then
                     local otherRoot = p.Character:FindFirstChild("HumanoidRootPart")
                     if otherRoot then
-                        pcall(function() otherRoot.CFrame = targetCF end)
+                        pcall(function()
+                            otherRoot.CFrame = targetCF
+                            otherRoot.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                        end)
                     end
                 end
             end
         end
-        pcall(function() myRoot.CFrame = myCF end)
     end)
 end
-makeButton(tabPull,36,"Bring Players (по роли)",function() StartBring() end)
-makeButton(tabPull,64,"Unbring / Stop",function() StopBring() end)
-makeButton(tabPull,92,"Pull All в лобби? (осторожно)",function()
+makeButton(tabPull,36,"Bring по роли",function() StartBring() end)
+makeButton(tabPull,64,"Bring ALL (всех)",function()
     Config.PullRole = "All"
+    pullRoleBtn.Text = "Pull Role: All"
+    pullRoleBtn.TextColor3 = Color3.fromRGB(200,200,200)
     StartBring()
 end)
+makeButton(tabPull,92,"STOP Bring",function() StopBring() end)
 tabPull.CanvasSize = UDim2.new(0,0,0,130)
 
--- AUTO
+-- ============================================================================
+-- ВКЛАДКА AUTO
+-- ============================================================================
 makeToggle(tabAuto,4,"AutoKill (ближний)",function(v) Config.AutoKill=v end)
 makeToggle(tabAuto,32,"AutoWin (всех)",function(v) Config.AutoWin=v end)
 tabAuto.CanvasSize = UDim2.new(0,0,0,64)
+-- ЧАСТЬ 2/3 КОНЕЦ-- ЧАСТЬ 3/3
 -- ============================================================================
--- GET ACTIVE TAB (для скролл-полосы)
+-- GET ACTIVE TAB + СКРОЛЛ-ПОЛОСА С ДРАГОМ
 -- ============================================================================
 function GetActiveTab()
     if tabAimbot.Visible then return tabAimbot end
@@ -606,7 +626,6 @@ function GetActiveTab()
     return tabAimbot
 end
 
--- Обновление thumb при скролле
 RunService.RenderStepped:Connect(function()
     pcall(function()
         local tab = GetActiveTab()
@@ -618,12 +637,49 @@ RunService.RenderStepped:Connect(function()
             return
         end
         local ratio = tab.AbsoluteSize.Y / tab.AbsoluteCanvasSize.Y
-        local thumbH = math.clamp(ratio, 0.1, 1)
+        local thumbH = math.clamp(ratio, 0.08, 1)
         local scrollRatio = math.clamp(tab.CanvasPosition.Y / maxY, 0, 1)
         scrollThumb.Size = UDim2.new(1,0,thumbH,0)
         scrollThumb.Position = UDim2.new(0,0,scrollRatio * (1 - thumbH),0)
     end)
 end)
+
+local thumbDrag = false
+scrollBarBg.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        thumbDrag = true
+        local tab = GetActiveTab()
+        if tab then
+            local maxY = math.max(0, tab.AbsoluteCanvasSize.Y - tab.AbsoluteSize.Y)
+            local rel = math.clamp((input.Position.Y - scrollBarBg.AbsolutePosition.Y) / scrollBarBg.AbsoluteSize.Y, 0, 1)
+            tab.CanvasPosition = Vector2.new(0, rel * maxY)
+        end
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        thumbDrag = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if thumbDrag and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local tab = GetActiveTab()
+        if not tab then return end
+        local maxY = math.max(0, tab.AbsoluteCanvasSize.Y - tab.AbsoluteSize.Y)
+        local rel = math.clamp((input.Position.Y - scrollBarBg.AbsolutePosition.Y) / scrollBarBg.AbsoluteSize.Y, 0, 1)
+        tab.CanvasPosition = Vector2.new(0, rel * maxY)
+    end
+end)
+
+-- ============================================================================
+-- ЭКРАН-ЧЕК
+-- ============================================================================
+local function ClampToScreen()
+    local vs = Camera.ViewportSize
+    local mx = math.clamp(menu.AbsolutePosition.X, 0, math.max(0, vs.X - menu.AbsoluteSize.X))
+    local my = math.clamp(menu.AbsolutePosition.Y, 0, math.max(0, vs.Y - menu.AbsoluteSize.Y))
+    menu.Position = UDim2.new(0, mx, 0, my)
+end
 
 -- ============================================================================
 -- DRAG / RESIZE / Z
@@ -635,7 +691,6 @@ title.InputBegan:Connect(function(input)
         menuDragging = true; menuDragStart = input.Position; menuStartPos = menu.Position
     end
 end)
-
 local resizing = false
 local resizeStart, resizeStartSize
 resizeHandle.InputBegan:Connect(function(input)
@@ -643,7 +698,6 @@ resizeHandle.InputBegan:Connect(function(input)
         resizing = true; resizeStart = input.Position; resizeStartSize = menu.AbsoluteSize
     end
 end)
-
 local btnDragging = false
 local btnWasDragged = false
 local btnDragStart, btnStartPos
@@ -653,7 +707,6 @@ toggleBtn.InputBegan:Connect(function(input)
         btnDragStart = input.Position; btnStartPos = toggleBtn.Position
     end
 end)
-
 UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         local delta
@@ -674,7 +727,6 @@ UserInputService.InputChanged:Connect(function(input)
         end
     end
 end)
-
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if btnDragging and not btnWasDragged then
@@ -683,6 +735,7 @@ UserInputService.InputEnded:Connect(function(input)
                 Size = open and UDim2.new(0, START_W, 0, 0) or UDim2.new(0, START_W, 0, START_H)
             }):Play()
         end
+        if resizing then task.wait(0.05); ClampToScreen() end
         menuDragging = false; menuDragStart = nil; menuStartPos = nil
         resizing = false; resizeStart = nil
         btnDragging = false; btnDragStart = nil; btnStartPos = nil
@@ -708,9 +761,7 @@ function SetNoclip(state)
         local char = LP.Character
         if char then
             for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and part.CanCollide then
-                    pcall(function() part.CanCollide = false end)
-                end
+                if part:IsA("BasePart") and part.CanCollide then pcall(function() part.CanCollide = false end) end
             end
         end
     end)
@@ -764,7 +815,6 @@ function SetInvisible(state)
         end
     end)
 end
-
 UserInputService.JumpRequest:Connect(function()
     if not Config.InfiniteJump then return end
     local char = LP.Character
@@ -796,7 +846,6 @@ local function GetSilentTarget()
     end
     return closest
 end
-
 pcall(function()
     local oldIndex
     oldIndex = hookmetamethod(game, "__index", function(self, key)
@@ -815,19 +864,16 @@ pcall(function()
 end)
 
 -- ============================================================================
--- FOV + ESP + CHAMS (с glow)
+-- FOV + ESP + CHAMS
 -- ============================================================================
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1; FOVCircle.NumSides = 40; FOVCircle.Filled = false
 FOVCircle.Radius = Config.FOV; FOVCircle.Color = RoleColors.Murderer; FOVCircle.Visible = false
-
 local SilentFOVCircle = Drawing.new("Circle")
 SilentFOVCircle.Thickness = 1; SilentFOVCircle.NumSides = 40; SilentFOVCircle.Filled = false
 SilentFOVCircle.Radius = Config.SilentFOV; SilentFOVCircle.Color = Color3.fromRGB(255,200,50); SilentFOVCircle.Visible = false
-
 local ESP = {}
 local Chams = {}
-
 local function CreateESP(plr)
     if plr == LP then return end
     local d = { Box = Drawing.new("Square"), Text = Drawing.new("Text") }
@@ -836,7 +882,6 @@ local function CreateESP(plr)
     d.Text.Color = Color3.fromRGB(255,255,255)
     ESP[plr] = d
 end
-
 for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
 Players.PlayerAdded:Connect(function(p) CreateESP(p) end)
 Players.PlayerRemoving:Connect(function(p)
@@ -848,7 +893,6 @@ Players.PlayerRemoving:Connect(function(p)
     RoleCache[p] = nil
     if Chams[p] then pcall(function() Chams[p]:Destroy() end); Chams[p] = nil end
 end)
-
 local function ApplyChams(plr, role)
     if plr == LP or not plr.Character then return end
     local hl = Chams[plr]
@@ -861,21 +905,19 @@ local function ApplyChams(plr, role)
         Chams[plr] = hl
     end
     local baseColor = RoleColors[role] or RoleColors.Innocent
-    -- glow: осветляем цвет для контура
     local glowColor = baseColor:Lerp(Color3.new(1,1,1), 0.5)
     hl.FillTransparency = Config.ChamsTransp
     hl.FillColor = baseColor
     hl.OutlineTransparency = 0
     hl.OutlineColor = glowColor
 end
-
 local function RemoveChams(plr)
     local hl = Chams[plr]
     if hl then pcall(function() hl:Destroy() end); Chams[plr] = nil end
 end
 
 -- ============================================================================
--- КЭШ МОНЕТ (с raycast-фиксом)
+-- МОНЕТЫ (с raycast)
 -- ============================================================================
 local CoinCache = {}
 local lastCoinCache = 0
@@ -895,7 +937,6 @@ local function RefreshCoinCache()
     end
     lastCoinCache = tick()
 end
-
 local function CollectCoinFast()
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -910,16 +951,13 @@ local function CollectCoinFast()
         end
     end
     if not nearest then return end
-    -- raycast-проверка: не тащим в стену
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = {myChar}
     params.IgnoreWater = true
     local dir = nearest.Position - myHRP.Position
-    local hit = Workspace:Raycast(myHRP.Position, dir + Vector3.new(0,3,0), params)
-    if hit and (hit.Position - myHRP.Position).Magnitude < dir.Magnitude - 1 then
-        return -- стена между нами и монетой
-    end
+    local hit = Workspace:Raycast(myHRP.Position, dir, params)
+    if hit and (hit.Position - myHRP.Position).Magnitude < dir.Magnitude - 1 then return end
     pcall(function() myHRP.CFrame = CFrame.new(nearest.Position + Vector3.new(0,3,0)) end)
 end
 
@@ -940,7 +978,6 @@ function TeleportToCoin()
     end
     if nearest then pcall(function() myHRP.CFrame = CFrame.new(nearest.Position + Vector3.new(0,3,0)) end) end
 end
-
 local function FindWeaponPos(names, fromPos)
     local nearest, nearDist = nil, math.huge
     for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -960,7 +997,6 @@ local function FindWeaponPos(names, fromPos)
     end
     return nearest
 end
-
 function TeleportToGun()
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -968,7 +1004,6 @@ function TeleportToGun()
     local pos = FindWeaponPos(GunNames, myHRP.Position)
     if pos then pcall(function() myHRP.CFrame = CFrame.new(pos + Vector3.new(0,3,0)) end) end
 end
-
 function TeleportToRevolver()
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -978,7 +1013,7 @@ function TeleportToRevolver()
 end
 
 -- ============================================================================
--- FREEZE (визуально + Anchored)
+-- FREEZE
 -- ============================================================================
 local frozenPlayers = {}
 function ApplyFreezeAll(state)
@@ -1050,9 +1085,6 @@ end
 
 -- ============================================================================
 -- AUTOWIN
--- Sheriff: silent aim + Activate
--- Murderer: TP + knife
--- Innocent: кручение + Velocity вниз (серверный откат — ограничение)
 -- ============================================================================
 local lastWinTick = 0
 local spinAngle = 0
@@ -1066,7 +1098,6 @@ local function GetMyRole()
     if attr then return attr end
     return "Innocent"
 end
-
 local function TryAutoWin()
     local now = tick()
     if now - lastWinTick < 0.3 then return end
@@ -1153,9 +1184,7 @@ local function TryAutoWin()
             spinAngle = spinAngle + 0.6
             local offset = CFrame.Angles(0, spinAngle, 0) * CFrame.new(0,0,-2)
             pcall(function() myHRP.CFrame = murderer.CFrame * offset end)
-            pcall(function()
-                murderer.AssemblyLinearVelocity = Vector3.new(0,-5000,0)
-            end)
+            pcall(function() murderer.AssemblyLinearVelocity = Vector3.new(0,-5000,0) end)
             pcall(function()
                 for _, t in ipairs(myChar:GetChildren()) do
                     if t:IsA("Tool") and t.Activate then t:Activate() end
@@ -1269,7 +1298,6 @@ RunService.RenderStepped:Connect(function(dt)
         SilentFOVCircle.Position = Camera.ViewportSize / 2
         SilentFOVCircle.Radius = Config.SilentFOV
         SilentFOVCircle.Visible = Config.SilentAim
-
         if Config.Aimbot then
             local myHum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
             if myHum and myHum.Health > 0 then
@@ -1285,7 +1313,6 @@ RunService.RenderStepped:Connect(function(dt)
                 end
             end
         end
-
         for p, d in pairs(ESP) do
             local char = p.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -1329,7 +1356,6 @@ RunService.RenderStepped:Connect(function(dt)
                 RemoveChams(p)
             end
         end
-
         if Config.AutoCoin then
             coinTimer = coinTimer + dt
             if coinTimer >= 0.05 then coinTimer = 0; CollectCoinFast() end
@@ -1356,4 +1382,5 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 
 ShowTab("Aim")
-pcall(function() StarterGui:SetCore("SendNotification", {Title="Zenit MM2", Text="v15: Pull по ролям, скролл-полоса, Chams glow", Duration=4}) end)
+pcall(function() StarterGui:SetCore("SendNotification", {Title="Zenit MM2", Text="v16 загружен", Duration=4}) end)
+-- ЧАСТЬ 3/3 КОНЕЦ
