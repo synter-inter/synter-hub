@@ -696,19 +696,163 @@ CreateToggle(Pages["Misc"], "God Mode", false, function(on)
 end)
 
 -- ========== TROLL ВКЛАДКА (FLING) ==========
-local FlingBtn = Instance.new("TextButton")
-FlingBtn.Size = UDim2.new(1, 0, 0, 40)
-FlingBtn.BackgroundColor3 = Color3.fromRGB(35, 15, 45)
-FlingBtn.Text = "Enable Fling Menu"
-FlingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-FlingBtn.Font = Enum.Font.GothamBold
-FlingBtn.TextSize = 13
-FlingBtn.BorderSizePixel = 0
-FlingBtn.Parent = Pages["Troll"]
-Instance.new("UICorner", FlingBtn).CornerRadius = UDim.new(0, 8)
-FlingBtn.MouseButton1Click:Connect(function()
+-- Troll Tab (Fling)
+local selectedFlingTarget = nil
+
+local FlingMenuBtn = Instance.new("TextButton")
+FlingMenuBtn.Size = UDim2.new(1, 0, 0, 40)
+FlingMenuBtn.BackgroundColor3 = Color3.fromRGB(35, 15, 45)
+FlingMenuBtn.Text = "Enable Fling Menu"
+FlingMenuBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlingMenuBtn.Font = Enum.Font.GothamBold
+FlingMenuBtn.TextSize = 13
+FlingMenuBtn.BorderSizePixel = 0
+FlingMenuBtn.Parent = TabContents["Troll"]
+Instance.new("UICorner", FlingMenuBtn).CornerRadius = UDim.new(0, 8)
+
+local FlingFrame = Instance.new("Frame")
+FlingFrame.Size = UDim2.new(1, 0, 0, 150)
+FlingFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+FlingFrame.BorderSizePixel = 0
+FlingFrame.Visible = false
+FlingFrame.Parent = TabContents["Troll"]
+Instance.new("UICorner", FlingFrame).CornerRadius = UDim.new(0, 6)
+
+local FlingScroll = Instance.new("ScrollingFrame")
+FlingScroll.Size = UDim2.new(1, -10, 1, -40)
+FlingScroll.Position = UDim2.new(0, 5, 0, 5)
+FlingScroll.BackgroundTransparency = 1
+FlingScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+FlingScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+FlingScroll.ScrollBarThickness = 2
+FlingScroll.Parent = FlingFrame
+local FlingLayout = Instance.new("UIListLayout")
+FlingLayout.Parent = FlingScroll
+FlingLayout.Padding = UDim.new(0, 4)
+
+local FlingStartBtn = Instance.new("TextButton")
+FlingStartBtn.Size = UDim2.new(1, -10, 0, 30)
+FlingStartBtn.Position = UDim2.new(0, 5, 1, -35)
+FlingStartBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+FlingStartBtn.Text = "START FLING"
+FlingStartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlingStartBtn.Font = Enum.Font.GothamBold
+FlingStartBtn.TextSize = 12
+FlingStartBtn.BorderSizePixel = 0
+FlingStartBtn.Parent = FlingFrame
+Instance.new("UICorner", FlingStartBtn).CornerRadius = UDim.new(0, 6)
+
+FlingMenuBtn.MouseButton1Click:Connect(function()
     PlayClick()
-    print("Fling Menu Activated (Вставь сюда свой код флинга)")
+    FlingFrame.Visible = not FlingFrame.Visible
+    if FlingFrame.Visible then
+        for _, child in ipairs(FlingScroll:GetChildren()) do
+            if child:IsA("TextButton") then child:Destroy() end
+        end
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(1, -5, 0, 25)
+                btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                btn.Text = plr.Name
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                btn.Font = Enum.Font.Gotham
+                btn.TextSize = 10
+                btn.BorderSizePixel = 0
+                btn.Parent = FlingScroll
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+                btn.MouseButton1Click:Connect(function()
+                    PlayClick()
+                    selectedFlingTarget = plr
+                end)
+            end
+        end
+    end
+end)
+
+-- Сама функция Флинга (SkidFling)
+local function SkidFling(TargetPlayer)
+    local Character = LocalPlayer.Character
+    local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Humanoid and Humanoid.RootPart
+    local TCharacter = TargetPlayer.Character
+    if not TCharacter then return end
+    local THumanoid, TRootPart, THead, Accessory, Handle
+    if TCharacter:FindFirstChildOfClass("Humanoid") then THumanoid = TCharacter:FindFirstChildOfClass("Humanoid") end
+    if THumanoid and THumanoid.RootPart then TRootPart = THumanoid.RootPart end
+    if TCharacter:FindFirstChild("Head") then THead = TCharacter.Head end
+    if TCharacter:FindFirstChildOfClass("Accessory") then Accessory = TCharacter:FindFirstChildOfClass("Accessory") end
+    if Accessory and Accessory:FindFirstChild("Handle") then Handle = Accessory.Handle end
+
+    if Character and Humanoid and RootPart then
+        if RootPart.Velocity.Magnitude < 50 then getgenv().OldPos = RootPart.CFrame end
+        if THumanoid and THumanoid.Sit then return end
+        if THead then workspace.CurrentCamera.CameraSubject = THead end
+        local FPos = function(BasePart, Pos, Ang)
+            RootPart.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
+            Character:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
+            RootPart.Velocity = Vector3.new(9e7, 9e7 * 10, 9e7)
+            RootPart.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+        end
+        local SFBasePart = function(BasePart)
+            local TimeToWait = 2
+            local Time = tick()
+            local Angle = 0
+            repeat
+                if RootPart and THumanoid then
+                    if BasePart.Velocity.Magnitude < 50 then
+                        Angle = Angle + 100
+                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, 1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle),0 ,0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, 0) + THumanoid.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
+                        task.wait()
+                    else
+                        FPos(BasePart, CFrame.new(0, 1.5, THumanoid.WalkSpeed), CFrame.Angles(math.rad(90), 0, 0))
+                        task.wait()
+                        FPos(BasePart, CFrame.new(0, -1.5, -THumanoid.WalkSpeed), CFrame.Angles(0, 0, 0))
+                        task.wait()
+                    end
+                end
+            until Time + TimeToWait < tick()
+        end
+        workspace.FallenPartsDestroyHeight = 0/0
+        local BV = Instance.new("BodyVelocity")
+        BV.Parent = RootPart
+        BV.Velocity = Vector3.new(0, 0, 0)
+        BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+        if TRootPart then SFBasePart(TRootPart)
+        elseif THead then SFBasePart(THead)
+        elseif Handle then SFBasePart(Handle) end
+        BV:Destroy()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
+        workspace.CurrentCamera.CameraSubject = Humanoid
+        if getgenv().OldPos then
+            repeat
+                RootPart.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
+                Character:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
+                Humanoid:ChangeState("GettingUp")
+                for _, part in pairs(Character:GetChildren()) do
+                    if part:IsA("BasePart") then part.Velocity, part.RotVelocity = Vector3.new(), Vector3.new() end
+                end
+                task.wait()
+            until (RootPart.Position - getgenv().OldPos.p).Magnitude < 25
+            workspace.FallenPartsDestroyHeight = getgenv().FPDH
+        end
+    end
+end
+
+FlingStartBtn.MouseButton1Click:Connect(function()
+    PlayClick()
+    if selectedFlingTarget and selectedFlingTarget.Character then
+        SkidFling(selectedFlingTarget)
+    else
+        print("Сначала выбери игрока в списке!")
+    end
 end)
 
 -- ========== УПРАВЛЕНИЕ МЕНЮ ==========
