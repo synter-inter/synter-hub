@@ -10,13 +10,12 @@ local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
-local VirtualUser = game:GetService("VirtualUser")
 
 -- Звук
 local ClickSound = Instance.new("Sound", SoundService)
 ClickSound.SoundId = "rbxassetid://12221967"
 ClickSound.Volume = 0.5
-local function PlayClick()
+_G.PlayClick = function()
     local s = ClickSound:Clone(); s.Parent = SoundService; s:Play(); game:GetService("Debris"):AddItem(s, 1)
 end
 
@@ -30,11 +29,12 @@ _G.HH = _G.HH or {
         Fly = {Enabled = false, Speed = 50}, NoClip = {Enabled = false},
         AutoCollectCoins = {Enabled = false, Range = 30}, NukeAll = {Enabled = false}
     },
-    Connections = {}, ESPObjects = {}, FOVCircle = nil
+    Connections = {}, ESPObjects = {}, FOVCircle = nil,
+    Pages = {}, TabButtons = {} -- ВАЖНО: Сохраняем сюда!
 }
 getgenv().OldPos = nil; getgenv().FPDH = workspace.FallenPartsDestroyHeight
 
--- UI (Меню)
+-- UI
 local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "HalloweenHub"; ScreenGui.ResetOnSpawn = false; ScreenGui.Parent = game:GetService("CoreGui")
 local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 10, 0, 100); ToggleBtn.BackgroundColor3 = Color3.fromRGB(25, 10, 30); ToggleBtn.Text = "🎃"; ToggleBtn.TextSize = 30; ToggleBtn.BorderSizePixel = 0; ToggleBtn.Parent = ScreenGui
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 15); local TS = Instance.new("UIStroke", ToggleBtn); TS.Color = Color3.fromRGB(255, 100, 0); TS.Thickness = 2
@@ -53,28 +53,28 @@ Instance.new("UIListLayout", TabScroll).FillDirection = Enum.FillDirection.Horiz
 
 local ContentFrame = Instance.new("Frame"); ContentFrame.Size = UDim2.new(1, -20, 1, -80); ContentFrame.Position = UDim2.new(0, 10, 0, 80); ContentFrame.BackgroundTransparency = 1; ContentFrame.Parent = MainFrame
 
-local Pages = {}; local TabButtons = {}; local CurrentTab = nil
-
+local CurrentTab = nil
 local function CreateTab(name, index)
     local Btn = Instance.new("TextButton"); Btn.Size = UDim2.new(0, 75, 0, 26); Btn.BackgroundColor3 = Color3.fromRGB(35, 15, 45); Btn.Text = name; Btn.TextColor3 = Color3.fromRGB(200, 200, 200); Btn.Font = Enum.Font.GothamBold; Btn.TextSize = 11; Btn.BorderSizePixel = 0; Btn.Parent = TabScroll
     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
     local Page = Instance.new("Frame"); Page.Size = UDim2.new(1, 0, 1, 0); Page.BackgroundTransparency = 1; Page.Visible = false; Page.Parent = ContentFrame
     Btn.MouseButton1Click:Connect(function()
-        PlayClick()
-        if CurrentTab then TweenService:Create(CurrentTab, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 15, 45), TextColor3 = Color3.fromRGB(200, 200, 200)}):Play(); Pages[CurrentTab].Visible = false end
-        CurrentTab = name; TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 100, 0), TextColor3 = Color3.fromRGB(0, 0, 0)}):Play(); Pages[name].Visible = true
+        _G.PlayClick()
+        if CurrentTab then TweenService:Create(CurrentTab, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 15, 45), TextColor3 = Color3.fromRGB(200, 200, 200)}):Play(); _G.HH.Pages[CurrentTab].Visible = false end
+        CurrentTab = name; TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 100, 0), TextColor3 = Color3.fromRGB(0, 0, 0)}):Play(); _G.HH.Pages[name].Visible = true
     end)
-    Pages[name] = Page; TabButtons[name] = Btn
+    _G.HH.Pages[name] = Page; _G.HH.TabButtons[name] = Btn
 end
 CreateTab("ESP", 1); CreateTab("Combat", 2); CreateTab("Move", 3); CreateTab("Misc", 4); CreateTab("Troll", 5)
-if TabButtons["ESP"] then CurrentTab = "ESP"; TabButtons["ESP"].BackgroundColor3 = Color3.fromRGB(255, 100, 0); TabButtons["ESP"].TextColor3 = Color3.fromRGB(0, 0, 0); Pages["ESP"].Visible = true end
+if _G.HH.TabButtons["ESP"] then CurrentTab = "ESP"; _G.HH.TabButtons["ESP"].BackgroundColor3 = Color3.fromRGB(255, 100, 0); _G.HH.TabButtons["ESP"].TextColor3 = Color3.fromRGB(0, 0, 0); _G.HH.Pages["ESP"].Visible = true end
 
-local function CreateSection(parent, name)
+-- Хелперы UI
+_G.HH.CreateSection = function(parent, name)
     local sec = Instance.new("Frame"); sec.Size = UDim2.new(1, 0, 0, 20); sec.BackgroundTransparency = 1; sec.Parent = parent
     local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 1, 0); lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = Color3.fromRGB(255, 100, 0); lbl.TextSize = 12; lbl.Font = Enum.Font.GothamBold; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = sec
 end
 
-local function CreateToggle(parent, settings, name, callback)
+_G.HH.CreateToggle = function(parent, settings, name, callback)
     local frm = Instance.new("Frame"); frm.Size = UDim2.new(1, 0, 0, 30); frm.BackgroundColor3 = Color3.fromRGB(35, 15, 45); frm.BorderSizePixel = 0; frm.Parent = parent
     Instance.new("UICorner", frm).CornerRadius = UDim.new(0, 6)
     local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(0.6, 0, 1, 0); lbl.Position = UDim2.new(0, 8, 0, 0); lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.TextSize = 11; lbl.Font = Enum.Font.Gotham; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = frm
@@ -88,10 +88,10 @@ local function CreateToggle(parent, settings, name, callback)
         else bg.BackgroundColor3 = Color3.fromRGB(50, 50, 50); TweenService:Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -6)}):Play() end
     end
     update()
-    bg.MouseButton1Click:Connect(function() PlayClick(); enabled = not enabled; settings.Enabled = enabled; update(); if callback then callback(enabled) end end)
+    bg.MouseButton1Click:Connect(function() _G.PlayClick(); enabled = not enabled; settings.Enabled = enabled; update(); if callback then callback(enabled) end end)
 end
 
-local function CreateSlider(parent, settings, name, min, max, default, callback)
+_G.HH.CreateSlider = function(parent, settings, name, min, max, default, callback)
     settings.Value = default
     local frm = Instance.new("Frame"); frm.Size = UDim2.new(1, 0, 0, 45); frm.BackgroundColor3 = Color3.fromRGB(35, 15, 45); frm.BorderSizePixel = 0; frm.Parent = parent
     Instance.new("UICorner", frm).CornerRadius = UDim.new(0, 6)
@@ -150,13 +150,13 @@ local function CreateRoleESP()
 end
 
 -- Вкладка ESP
-CreateSection(Pages["ESP"], "Role ESP")
-CreateToggle(Pages["ESP"], _G.HH.Settings.SheriffESP, "Sheriff ESP (Blue)", CreateRoleESP)
-CreateToggle(Pages["ESP"], _G.HH.Settings.MurdererESP, "Murderer ESP (Red)", CreateRoleESP)
+_G.HH.CreateSection(_G.HH.Pages["ESP"], "Role ESP")
+_G.HH.CreateToggle(_G.HH.Pages["ESP"], _G.HH.Settings.SheriffESP, "Sheriff ESP (Blue)", CreateRoleESP)
+_G.HH.CreateToggle(_G.HH.Pages["ESP"], _G.HH.Settings.MurdererESP, "Murderer ESP (Red)", CreateRoleESP)
 
--- Вкладка Move (Fly/NoClip)
-CreateSection(Pages["Move"], "Movement")
-CreateToggle(Pages["Move"], _G.HH.Settings.Fly, "Fly", function(on)
+-- Вкладка Move
+_G.HH.CreateSection(_G.HH.Pages["Move"], "Movement")
+_G.HH.CreateToggle(_G.HH.Pages["Move"], _G.HH.Settings.Fly, "Fly", function(on)
     if on then
         if _G.HH.Connections.Fly then _G.HH.Connections.Fly:Disconnect() end
         local char = LocalPlayer.Character; if not char then return end
@@ -174,8 +174,8 @@ CreateToggle(Pages["Move"], _G.HH.Settings.Fly, "Fly", function(on)
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.PlatformStand = false end
     end
 end)
-CreateSlider(Pages["Move"], _G.HH.Settings.Fly, "Fly Speed", 10, 200, 50, function(v) _G.HH.Settings.Fly.Speed = v end)
-CreateToggle(Pages["Move"], _G.HH.Settings.NoClip, "NoClip", function(on)
+_G.HH.CreateSlider(_G.HH.Pages["Move"], _G.HH.Settings.Fly, "Fly Speed", 10, 200, 50, function(v) _G.HH.Settings.Fly.Speed = v end)
+_G.HH.CreateToggle(_G.HH.Pages["Move"], _G.HH.Settings.NoClip, "NoClip", function(on)
     if on then
         if _G.HH.Connections.NC then _G.HH.Connections.NC:Disconnect() end
         _G.HH.Connections.NC = RunService.Stepped:Connect(function()
@@ -186,13 +186,12 @@ CreateToggle(Pages["Move"], _G.HH.Settings.NoClip, "NoClip", function(on)
 end)
 
 -- Вкладка Troll (Fling)
-local FlingBtn = Instance.new("TextButton"); FlingBtn.Size = UDim2.new(1, 0, 0, 40); FlingBtn.BackgroundColor3 = Color3.fromRGB(35, 15, 45); FlingBtn.Text = "Enable Fling Menu"; FlingBtn.TextColor3 = Color3.fromRGB(255,255,255); FlingBtn.Font = Enum.Font.GothamBold; FlingBtn.TextSize = 13; FlingBtn.BorderSizePixel = 0; FlingBtn.Parent = Pages["Troll"]
+local FlingBtn = Instance.new("TextButton"); FlingBtn.Size = UDim2.new(1, 0, 0, 40); FlingBtn.BackgroundColor3 = Color3.fromRGB(35, 15, 45); FlingBtn.Text = "Enable Fling Menu"; FlingBtn.TextColor3 = Color3.fromRGB(255,255,255); FlingBtn.Font = Enum.Font.GothamBold; FlingBtn.TextSize = 13; FlingBtn.BorderSizePixel = 0; FlingBtn.Parent = _G.HH.Pages["Troll"]
 Instance.new("UICorner", FlingBtn).CornerRadius = UDim.new(0, 8)
-FlingBtn.MouseButton1Click:Connect(function() PlayClick(); print("Fling Menu Activated") end)
+FlingBtn.MouseButton1Click:Connect(function() _G.PlayClick(); print("Fling Menu Activated") end)
 
--- Кнопки меню
-ToggleBtn.MouseButton1Click:Connect(function() PlayClick(); MainFrame.Visible = not MainFrame.Visible; if MainFrame.Visible then MainFrame.Size = UDim2.new(0,0,0,0); TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0,320,0,380)}):Play() end end)
-CloseBtn.MouseButton1Click:Connect(function() PlayClick(); TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0,0,0,0)}):Play(); task.wait(0.3); MainFrame.Visible = false end)
+ToggleBtn.MouseButton1Click:Connect(function() _G.PlayClick(); MainFrame.Visible = not MainFrame.Visible; if MainFrame.Visible then MainFrame.Size = UDim2.new(0,0,0,0); TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0,320,0,380)}):Play() end end)
+CloseBtn.MouseButton1Click:Connect(function() _G.PlayClick(); TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0,0,0,0)}):Play(); task.wait(0.3); MainFrame.Visible = false end)
 
 local dragging, dragStart, startPos
 TitleBar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; dragStart = input.Position; startPos = MainFrame.Position; input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end) end end)
@@ -203,162 +202,63 @@ if not _G.HH then return end
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
-local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
-local Camera = Workspace.CurrentCamera
+local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Находим вкладку Combat и создаем кнопки
-local Pages = _G.HH.Pages
-if not Pages or not Pages["Combat"] then return end
-local CombatTab = Pages["Combat"]
+local CombatTab = _G.HH.Pages["Combat"]
+if not CombatTab then return end
 
-local function CreateSection(parent, name)
-    local sec = Instance.new("Frame"); sec.Size = UDim2.new(1, 0, 0, 20); sec.BackgroundTransparency = 1; sec.Parent = parent
-    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 1, 0); lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = Color3.fromRGB(255, 100, 0); lbl.TextSize = 12; lbl.Font = Enum.Font.GothamBold; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = sec
-end
-
-local function CreateToggle(parent, settings, name, callback)
-    local frm = Instance.new("Frame"); frm.Size = UDim2.new(1, 0, 0, 30); frm.BackgroundColor3 = Color3.fromRGB(35, 15, 45); frm.BorderSizePixel = 0; frm.Parent = parent
-    Instance.new("UICorner", frm).CornerRadius = UDim.new(0, 6)
-    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(0.6, 0, 1, 0); lbl.Position = UDim2.new(0, 8, 0, 0); lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.TextSize = 11; lbl.Font = Enum.Font.Gotham; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = frm
-    local bg = Instance.new("Frame"); bg.Size = UDim2.new(0, 30, 0, 16); bg.Position = UDim2.new(1, -38, 0.5, -8); bg.BackgroundColor3 = Color3.fromRGB(50, 50, 50); bg.BorderSizePixel = 0; bg.Parent = frm
-    Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
-    local dot = Instance.new("Frame"); dot.Size = UDim2.new(0, 12, 0, 12); dot.Position = UDim2.new(0, 2, 0.5, -6); dot.BackgroundColor3 = Color3.fromRGB(200, 200, 200); dot.BorderSizePixel = 0; dot.Parent = bg
-    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-    local enabled = settings.Enabled or false
-    local function update()
-        if enabled then bg.BackgroundColor3 = Color3.fromRGB(255, 100, 0); game:GetService("TweenService"):Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(0, 16, 0.5, -6)}):Play()
-        else bg.BackgroundColor3 = Color3.fromRGB(50, 50, 50); game:GetService("TweenService"):Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -6)}):Play() end
-    end
-    update()
-    bg.MouseButton1Click:Connect(function() _G.PlayClick(); enabled = not enabled; settings.Enabled = enabled; update(); if callback then callback(enabled) end end)
-end
-
-local function CreateSlider(parent, settings, name, min, max, default, callback)
-    settings.Value = default
-    local frm = Instance.new("Frame"); frm.Size = UDim2.new(1, 0, 0, 45); frm.BackgroundColor3 = Color3.fromRGB(35, 15, 45); frm.BorderSizePixel = 0; frm.Parent = parent
-    Instance.new("UICorner", frm).CornerRadius = UDim.new(0, 6)
-    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, -12, 0, 16); lbl.Position = UDim2.new(0, 8, 0, 4); lbl.BackgroundTransparency = 1; lbl.Text = name .. ": " .. default; lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.TextSize = 10; lbl.Font = Enum.Font.Gotham; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = frm
-    local sbg = Instance.new("Frame"); sbg.Size = UDim2.new(1, -16, 0, 6); sbg.Position = UDim2.new(0, 8, 0, 25); sbg.BackgroundColor3 = Color3.fromRGB(50, 50, 50); sbg.BorderSizePixel = 0; sbg.Parent = frm
-    Instance.new("UICorner", sbg).CornerRadius = UDim.new(1, 0)
-    local fill = Instance.new("Frame"); fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(255, 100, 0); fill.BorderSizePixel = 0; fill.Parent = sbg
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-    local dragging = false
-    local function updateSlider(input)
-        local px = input.Position.X; local sp = sbg.AbsolutePosition; local ss = sbg.AbsoluteSize
-        local rx = math.clamp(px - sp.X, 0, ss.X); local pct = rx / ss.X; local val = math.floor(min + (max-min)*pct)
-        settings.Value = val; fill.Size = UDim2.new(pct, 0, 1, 0); lbl.Text = name .. ": " .. val
-        if callback then callback(val) end
-    end
-    sbg.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; updateSlider(input) end end)
-    sbg.InputEnded:Connect(function() dragging = false end)
-    UserInputService.TouchMoved:Connect(function(input) if dragging then updateSlider(input) end end)
-end
-
-local function GetClosestEnemyInFOV(fov)
-    local best, bestDist = nil, fov or 9999
-    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local head = player.Character:FindFirstChild("Head")
-            local hum = player.Character:FindFirstChild("Humanoid")
-            if head and hum and hum.Health > 0 then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                    if dist < bestDist then bestDist = dist; best = player end
-                end
-            end
-        end
-    end
-    return best
-end
-
-local function FireWeapon() pcall(function() VirtualUser:CaptureController(); VirtualUser:ClickButton1(Vector2.new()) end) end
-
-CreateSection(CombatTab, "Aimbot")
-CreateToggle(CombatTab, _G.HH.Settings.Aimbot, "Enable Aimbot", function(on)
+_G.HH.CreateSection(CombatTab, "Aimbot")
+_G.HH.CreateToggle(CombatTab, _G.HH.Settings.Aimbot, "Enable Aimbot", function(on)
     if on then
         if not _G.HH.FOVCircle then local c = Drawing.new("Circle"); c.Radius = _G.HH.Settings.Aimbot.FOV; c.Color = Color3.fromRGB(255, 100, 0); c.Thickness = 1.5; c.Transparency = 0.7; c.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2); _G.HH.FOVCircle = c end
         if _G.HH.Connections.Aim then _G.HH.Connections.Aim:Disconnect() end
         _G.HH.Connections.Aim = RunService.RenderStepped:Connect(function()
             if not _G.HH.Settings.Aimbot.Enabled then if _G.HH.FOVCircle then _G.HH.FOVCircle:Remove(); _G.HH.FOVCircle = nil end return end
-            local target = GetClosestEnemyInFOV(_G.HH.Settings.Aimbot.FOV)
+            local target = nil; local bestDist = _G.HH.Settings.Aimbot.FOV
+            local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character then
+                    local head = player.Character:FindFirstChild("Head")
+                    local hum = player.Character:FindFirstChild("Humanoid")
+                    if head and hum and hum.Health > 0 then
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                        if onScreen then
+                            local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                            if dist < bestDist then bestDist = dist; target = player end
+                        end
+                    end
+                end
+            end
             if target and target.Character then
                 local aimPart = target.Character:FindFirstChild("Head") or target.Character:FindFirstChild("HumanoidRootPart")
                 if aimPart then
                     Camera.CFrame = CFrame.new(Camera.CFrame.Position, aimPart.Position)
-                    if _G.HH.Settings.Aimbot.AutoFire then FireWeapon() end
+                    if _G.HH.Settings.Aimbot.AutoFire then pcall(function() VirtualUser:CaptureController(); VirtualUser:ClickButton1(Vector2.new()) end) end
                 end
             end
         end)
     else if _G.HH.Connections.Aim then _G.HH.Connections.Aim:Disconnect() end end
 end)
-CreateSlider(CombatTab, _G.HH.Settings.Aimbot, "Aimbot FOV", 40, 400, 120, function(v) _G.HH.Settings.Aimbot.FOV = v end)
-CreateToggle(CombatTab, _G.HH.Settings.Aimbot, "AutoFire", function(on) _G.HH.Settings.Aimbot.AutoFire = on end)
+_G.HH.CreateSlider(CombatTab, _G.HH.Settings.Aimbot, "Aimbot FOV", 40, 400, 120, function(v) _G.HH.Settings.Aimbot.FOV = v end)
+_G.HH.CreateToggle(CombatTab, _G.HH.Settings.Aimbot, "AutoFire", function(on) _G.HH.Settings.Aimbot.AutoFire = on end)
 
-CreateSection(CombatTab, "Silent Aim")
-CreateToggle(CombatTab, _G.HH.Settings.SilentAim, "Silent Aim", function(on) _G.HH.Settings.SilentAim.Enabled = on end)
-CreateSlider(CombatTab, _G.HH.Settings.SilentAim, "Silent FOV", 40, 400, 120, function(v) _G.HH.Settings.SilentAim.FOV = v end)
+_G.HH.CreateSection(CombatTab, "Silent Aim")
+_G.HH.CreateToggle(CombatTab, _G.HH.Settings.SilentAim, "Silent Aim", function(on) _G.HH.Settings.SilentAim.Enabled = on end)
+_G.HH.CreateSlider(CombatTab, _G.HH.Settings.SilentAim, "Silent FOV", 40, 400, 120, function(v) _G.HH.Settings.SilentAim.FOV = v end)
 
 print("[HALLOWEEN HUB] Part 2 Loaded (Combat)")-- [[ HALLOWEEN HUB - PART 3/3 : MISC ]] --
 if not _G.HH then return end
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 
-local Pages = _G.HH.Pages
-if not Pages or not Pages["Misc"] then return end
-local MiscTab = Pages["Misc"]
+local MiscTab = _G.HH.Pages["Misc"]
+if not MiscTab then return end
 
-local function CreateSection(parent, name)
-    local sec = Instance.new("Frame"); sec.Size = UDim2.new(1, 0, 0, 20); sec.BackgroundTransparency = 1; sec.Parent = parent
-    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 1, 0); lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = Color3.fromRGB(255, 100, 0); lbl.TextSize = 12; lbl.Font = Enum.Font.GothamBold; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = sec
-end
-
-local function CreateToggle(parent, settings, name, callback)
-    local frm = Instance.new("Frame"); frm.Size = UDim2.new(1, 0, 0, 30); frm.BackgroundColor3 = Color3.fromRGB(35, 15, 45); frm.BorderSizePixel = 0; frm.Parent = parent
-    Instance.new("UICorner", frm).CornerRadius = UDim.new(0, 6)
-    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(0.6, 0, 1, 0); lbl.Position = UDim2.new(0, 8, 0, 0); lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.TextSize = 11; lbl.Font = Enum.Font.Gotham; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = frm
-    local bg = Instance.new("Frame"); bg.Size = UDim2.new(0, 30, 0, 16); bg.Position = UDim2.new(1, -38, 0.5, -8); bg.BackgroundColor3 = Color3.fromRGB(50, 50, 50); bg.BorderSizePixel = 0; bg.Parent = frm
-    Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
-    local dot = Instance.new("Frame"); dot.Size = UDim2.new(0, 12, 0, 12); dot.Position = UDim2.new(0, 2, 0.5, -6); dot.BackgroundColor3 = Color3.fromRGB(200, 200, 200); dot.BorderSizePixel = 0; dot.Parent = bg
-    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-    local enabled = settings.Enabled or false
-    local function update()
-        if enabled then bg.BackgroundColor3 = Color3.fromRGB(255, 100, 0); game:GetService("TweenService"):Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(0, 16, 0.5, -6)}):Play()
-        else bg.BackgroundColor3 = Color3.fromRGB(50, 50, 50); game:GetService("TweenService"):Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -6)}):Play() end
-    end
-    update()
-    bg.MouseButton1Click:Connect(function() _G.PlayClick(); enabled = not enabled; settings.Enabled = enabled; update(); if callback then callback(enabled) end end)
-end
-
-local function CreateSlider(parent, settings, name, min, max, default, callback)
-    settings.Value = default
-    local frm = Instance.new("Frame"); frm.Size = UDim2.new(1, 0, 0, 45); frm.BackgroundColor3 = Color3.fromRGB(35, 15, 45); frm.BorderSizePixel = 0; frm.Parent = parent
-    Instance.new("UICorner", frm).CornerRadius = UDim.new(0, 6)
-    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, -12, 0, 16); lbl.Position = UDim2.new(0, 8, 0, 4); lbl.BackgroundTransparency = 1; lbl.Text = name .. ": " .. default; lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.TextSize = 10; lbl.Font = Enum.Font.Gotham; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = frm
-    local sbg = Instance.new("Frame"); sbg.Size = UDim2.new(1, -16, 0, 6); sbg.Position = UDim2.new(0, 8, 0, 25); sbg.BackgroundColor3 = Color3.fromRGB(50, 50, 50); sbg.BorderSizePixel = 0; sbg.Parent = frm
-    Instance.new("UICorner", sbg).CornerRadius = UDim.new(1, 0)
-    local fill = Instance.new("Frame"); fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(255, 100, 0); fill.BorderSizePixel = 0; fill.Parent = sbg
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-    local dragging = false
-    local function updateSlider(input)
-        local px = input.Position.X; local sp = sbg.AbsolutePosition; local ss = sbg.AbsoluteSize
-        local rx = math.clamp(px - sp.X, 0, ss.X); local pct = rx / ss.X; local val = math.floor(min + (max-min)*pct)
-        settings.Value = val; fill.Size = UDim2.new(pct, 0, 1, 0); lbl.Text = name .. ": " .. val
-        if callback then callback(val) end
-    end
-    sbg.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; updateSlider(input) end end)
-    sbg.InputEnded:Connect(function() dragging = false end)
-    UserInputService.TouchMoved:Connect(function(input) if dragging then updateSlider(input) end end)
-end
-
-CreateSection(MiscTab, "Auto Collect")
-CreateToggle(MiscTab, _G.HH.Settings.AutoCollectCoins, "Auto Collect Coins", function(on)
+_G.HH.CreateSection(MiscTab, "Auto Collect")
+_G.HH.CreateToggle(MiscTab, _G.HH.Settings.AutoCollectCoins, "Auto Collect Coins", function(on)
     if on then
         if _G.HH.Connections.ACC then _G.HH.Connections.ACC:Disconnect() end
         _G.HH.Connections.ACC = RunService.RenderStepped:Connect(function()
@@ -372,6 +272,6 @@ CreateToggle(MiscTab, _G.HH.Settings.AutoCollectCoins, "Auto Collect Coins", fun
         end)
     else if _G.HH.Connections.ACC then _G.HH.Connections.ACC:Disconnect() end end
 end)
-CreateSlider(MiscTab, _G.HH.Settings.AutoCollectCoins, "Range", 10, 100, 30, function(v) _G.HH.Settings.AutoCollectCoins.Range = v end)
+_G.HH.CreateSlider(MiscTab, _G.HH.Settings.AutoCollectCoins, "Range", 10, 100, 30, function(v) _G.HH.Settings.AutoCollectCoins.Range = v end)
 
 print("[HALLOWEEN HUB] Part 3 Loaded (Misc)")
