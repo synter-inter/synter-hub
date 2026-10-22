@@ -14,14 +14,14 @@ local Camera = Workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 local VirtualUser = game:GetService("VirtualUser")
 
--- Очистка старых версий, чтобы не было конфликтов
+-- Очистка старых версий
 if game:GetService("CoreGui"):FindFirstChild("EtherealMonolith") then
     game:GetService("CoreGui"):FindFirstChild("EtherealMonolith"):Destroy()
 end
 
 -- ========== ЗВУК ==========
 local ClickSound = Instance.new("Sound", SoundService)
-ClickSound.SoundId = "rbxassetid://12221967" -- "Pop"
+ClickSound.SoundId = "rbxassetid://12221967"
 ClickSound.Volume = 0.5
 local function PlayClick()
     local s = ClickSound:Clone()
@@ -34,29 +34,19 @@ end
 local Settings = {
     SheriffESP = false, MurdererESP = false,
     GunESP = false, CoinESP = false,
-    PlayerESP = false, PlayerNames = true, PlayerDistance = true, PlayerHealth = true,
     Aimbot = false, AimbotFOV = 120, AimbotSmoothness = 1, AutoFire = false,
     SilentAim = false, SilentAimFOV = 120,
     KnifeAimbot = false, KnifeAimbotFOV = 60, KnifeAutoStab = false,
     Fly = false, FlySpeed = 50,
-    NoClip = false,
-    SpeedHack = false, SpeedValue = 50,
+    NoClip = false, SpeedHack = false, SpeedValue = 50,
     InfiniteJump = false,
-    SpinBot = false, SpinSpeed = 10,
     AutoCollect = false, AutoCollectRange = 30,
-    AutoPickupGun = false,
-    Crosshair = false, CrosshairSize = 20,
-    ThirdPerson = false, ThirdPersonDist = 10,
-    AntiAfk = false,
     GodMode = false
 }
-
 local Connections = {}
 local ESPObjects = {}
 local FOVCircle = nil
 local KnifeFOVCircle = nil
-local CrosshairObj = nil
-
 getgenv().OldPos = nil
 getgenv().FPDH = workspace.FallenPartsDestroyHeight
 
@@ -78,9 +68,6 @@ ToggleBtn.Font = Enum.Font.GothamBold
 ToggleBtn.BorderSizePixel = 0
 ToggleBtn.Parent = ScreenGui
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 12)
-local TStroke = Instance.new("UIStroke", ToggleBtn)
-TStroke.Color = Color3.fromRGB(0, 255, 200)
-TStroke.Thickness = 2
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 320, 0, 400)
@@ -91,9 +78,6 @@ MainFrame.Active = true
 MainFrame.Visible = false
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
-local MStroke = Instance.new("UIStroke", MainFrame)
-MStroke.Color = Color3.fromRGB(0, 255, 200)
-MStroke.Thickness = 2
 
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 35)
@@ -192,11 +176,7 @@ local function CreateTab(name, index)
     TabButtons[name] = Btn
 end
 
-CreateTab("ESP", 1)
-CreateTab("Combat", 2)
-CreateTab("Move", 3)
-CreateTab("Misc", 4)
-CreateTab("Troll", 5)
+CreateTab("ESP", 1); CreateTab("Combat", 2); CreateTab("Move", 3); CreateTab("Misc", 4); CreateTab("Troll", 5)
 
 if TabButtons["ESP"] then
     CurrentTab = "ESP"
@@ -207,145 +187,55 @@ end
 
 -- ========== ХЕЛПЕРЫ ==========
 local function CreateSection(parent, name)
-    local sec = Instance.new("Frame")
-    sec.Size = UDim2.new(1, 0, 0, 20)
-    sec.BackgroundTransparency = 1
-    sec.Parent = parent
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 1, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = name
-    lbl.TextColor3 = Color3.fromRGB(0, 255, 200)
-    lbl.TextSize = 12
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = sec
+    local sec = Instance.new("Frame"); sec.Size = UDim2.new(1, 0, 0, 20); sec.BackgroundTransparency = 1; sec.Parent = parent
+    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, 0, 1, 0); lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = Color3.fromRGB(0, 255, 200); lbl.TextSize = 12; lbl.Font = Enum.Font.GothamBold; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = sec
 end
 
 local function CreateToggle(parent, name, default, callback)
-    local frm = Instance.new("Frame")
-    frm.Size = UDim2.new(1, 0, 0, 30)
-    frm.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    frm.BorderSizePixel = 0
-    frm.Parent = parent
+    local frm = Instance.new("Frame"); frm.Size = UDim2.new(1, 0, 0, 30); frm.BackgroundColor3 = Color3.fromRGB(30, 30, 35); frm.BorderSizePixel = 0; frm.Parent = parent
     Instance.new("UICorner", frm).CornerRadius = UDim.new(0, 6)
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0.6, 0, 1, 0)
-    lbl.Position = UDim2.new(0, 8, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = name
-    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    lbl.TextSize = 11
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = frm
-
-    local bg = Instance.new("Frame")
-    bg.Size = UDim2.new(0, 30, 0, 16)
-    bg.Position = UDim2.new(1, -38, 0.5, -8)
-    bg.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-    bg.BorderSizePixel = 0
-    bg.Parent = frm
+    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(0.6, 0, 1, 0); lbl.Position = UDim2.new(0, 8, 0, 0); lbl.BackgroundTransparency = 1; lbl.Text = name; lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.TextSize = 11; lbl.Font = Enum.Font.Gotham; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = frm
+    local bg = Instance.new("Frame"); bg.Size = UDim2.new(0, 30, 0, 16); bg.Position = UDim2.new(1, -38, 0.5, -8); bg.BackgroundColor3 = Color3.fromRGB(60, 60, 65); bg.BorderSizePixel = 0; bg.Parent = frm
     Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
-
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 12, 0, 12)
-    dot.Position = UDim2.new(0, 2, 0.5, -6)
-    dot.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-    dot.BorderSizePixel = 0
-    dot.Parent = bg
+    local dot = Instance.new("Frame"); dot.Size = UDim2.new(0, 12, 0, 12); dot.Position = UDim2.new(0, 2, 0.5, -6); dot.BackgroundColor3 = Color3.fromRGB(200, 200, 200); dot.BorderSizePixel = 0; dot.Parent = bg
     Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-
     local enabled = default or false
     local function update()
-        if enabled then
-            bg.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
-            TweenService:Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(0, 16, 0.5, -6)}):Play()
-        else
-            bg.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-            TweenService:Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -6)}):Play()
-        end
+        if enabled then bg.BackgroundColor3 = Color3.fromRGB(0, 255, 200); TweenService:Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(0, 16, 0.5, -6)}):Play()
+        else bg.BackgroundColor3 = Color3.fromRGB(60, 60, 65); TweenService:Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -6)}):Play() end
     end
     update()
-    bg.MouseButton1Click:Connect(function()
-        PlayClick()
-        enabled = not enabled
-        update()
-        if callback then callback(enabled) end
-    end)
+    bg.MouseButton1Click:Connect(function() PlayClick(); enabled = not enabled; update(); if callback then callback(enabled) end end)
 end
 
 local function CreateSlider(parent, name, min, max, default, callback)
-    local frm = Instance.new("Frame")
-    frm.Size = UDim2.new(1, 0, 0, 45)
-    frm.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    frm.BorderSizePixel = 0
-    frm.Parent = parent
+    local frm = Instance.new("Frame"); frm.Size = UDim2.new(1, 0, 0, 45); frm.BackgroundColor3 = Color3.fromRGB(30, 30, 35); frm.BorderSizePixel = 0; frm.Parent = parent
     Instance.new("UICorner", frm).CornerRadius = UDim.new(0, 6)
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -12, 0, 16)
-    lbl.Position = UDim2.new(0, 8, 0, 4)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = name .. ": " .. default
-    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    lbl.TextSize = 10
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = frm
-
-    local sbg = Instance.new("Frame")
-    sbg.Size = UDim2.new(1, -16, 0, 6)
-    sbg.Position = UDim2.new(0, 8, 0, 25)
-    sbg.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-    sbg.BorderSizePixel = 0
-    sbg.Parent = frm
+    local lbl = Instance.new("TextLabel"); lbl.Size = UDim2.new(1, -12, 0, 16); lbl.Position = UDim2.new(0, 8, 0, 4); lbl.BackgroundTransparency = 1; lbl.Text = name .. ": " .. default; lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.TextSize = 10; lbl.Font = Enum.Font.Gotham; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Parent = frm
+    local sbg = Instance.new("Frame"); sbg.Size = UDim2.new(1, -16, 0, 6); sbg.Position = UDim2.new(0, 8, 0, 25); sbg.BackgroundColor3 = Color3.fromRGB(60, 60, 65); sbg.BorderSizePixel = 0; sbg.Parent = frm
     Instance.new("UICorner", sbg).CornerRadius = UDim.new(1, 0)
-
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
-    fill.BorderSizePixel = 0
-    fill.Parent = sbg
+    local fill = Instance.new("Frame"); fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(0, 255, 200); fill.BorderSizePixel = 0; fill.Parent = sbg
     Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-
     local dragging = false
     local function updateSlider(input)
-        local px = input.Position.X
-        local sp = sbg.AbsolutePosition
-        local ss = sbg.AbsoluteSize
-        local rx = math.clamp(px - sp.X, 0, ss.X)
-        local pct = rx / ss.X
-        local val = math.floor(min + (max-min)*pct)
-        fill.Size = UDim2.new(pct, 0, 1, 0)
-        lbl.Text = name .. ": " .. val
+        local px = input.Position.X; local sp = sbg.AbsolutePosition; local ss = sbg.AbsoluteSize
+        local rx = math.clamp(px - sp.X, 0, ss.X); local pct = rx / ss.X; local val = math.floor(min + (max-min)*pct)
+        fill.Size = UDim2.new(pct, 0, 1, 0); lbl.Text = name .. ": " .. val
         if callback then callback(val) end
     end
-    sbg.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            updateSlider(input)
-        end
-    end)
+    sbg.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; updateSlider(input) end end)
     sbg.InputEnded:Connect(function() dragging = false end)
-    UserInputService.TouchMoved:Connect(function(input)
-        if dragging then updateSlider(input) end
-    end)
+    UserInputService.TouchMoved:Connect(function(input) if dragging then updateSlider(input) end end)
 end
 
 -- ========== ЛОГИКА ==========
 local function FindSheriff()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character then
-            for _, c in pairs(plr.Character:GetChildren()) do
-                if c:IsA("Tool") and (c.Name:lower():find("gun") or c.Name:lower():find("pistol")) then return plr end
-            end
+            for _, c in pairs(plr.Character:GetChildren()) do if c:IsA("Tool") and (c.Name:lower():find("gun") or c.Name:lower():find("pistol")) then return plr end end
         end
         if plr ~= LocalPlayer and plr.Backpack then
-            for _, t in pairs(plr.Backpack:GetChildren()) do
-                if t:IsA("Tool") and (t.Name:lower():find("gun") or t.Name:lower():find("pistol")) then return plr end
-            end
+            for _, t in pairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") and (t.Name:lower():find("gun") or t.Name:lower():find("pistol")) then return plr end end
         end
     end
     return nil
@@ -354,14 +244,10 @@ end
 local function FindMurderer()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and plr.Character then
-            for _, c in pairs(plr.Character:GetChildren()) do
-                if c:IsA("Tool") and (c.Name:lower():find("knife") or c.Name:lower():find("dagger")) then return plr end
-            end
+            for _, c in pairs(plr.Character:GetChildren()) do if c:IsA("Tool") and (c.Name:lower():find("knife") or c.Name:lower():find("dagger")) then return plr end end
         end
         if plr ~= LocalPlayer and plr.Backpack then
-            for _, t in pairs(plr.Backpack:GetChildren()) do
-                if t:IsA("Tool") and (t.Name:lower():find("knife") or t.Name:lower():find("dagger")) then return plr end
-            end
+            for _, t in pairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") and (t.Name:lower():find("knife") or t.Name:lower():find("dagger")) then return plr end end
         end
     end
     return nil
@@ -371,31 +257,15 @@ local function HighlightRole(player, color)
     if player and player.Character then
         local existing = player.Character:FindFirstChild("EtherealRoleHL")
         if existing then existing:Destroy() end
-        local hl = Instance.new("Highlight")
-        hl.Name = "EtherealRoleHL"
-        hl.FillColor = color
-        hl.FillTransparency = 0.3
-        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-        hl.OutlineTransparency = 0
-        hl.Parent = player.Character
+        local hl = Instance.new("Highlight"); hl.Name = "EtherealRoleHL"; hl.FillColor = color; hl.FillTransparency = 0.3; hl.OutlineColor = Color3.fromRGB(255, 255, 255); hl.OutlineTransparency = 0; hl.Parent = player.Character
         table.insert(ESPObjects, hl)
     end
 end
 
 local function CreateRoleESP()
-    for _, obj in pairs(ESPObjects) do
-        if typeof(obj) == "Instance" and obj.Name == "EtherealRoleHL" then
-            pcall(function() obj:Destroy() end)
-        end
-    end
-    if Settings.SheriffESP then
-        local s = FindSheriff()
-        if s then HighlightRole(s, Color3.fromRGB(0, 150, 255)) end
-    end
-    if Settings.MurdererESP then
-        local m = FindMurderer()
-        if m then HighlightRole(m, Color3.fromRGB(255, 50, 50)) end
-    end
+    for _, obj in pairs(ESPObjects) do if typeof(obj) == "Instance" and obj.Name == "EtherealRoleHL" then pcall(function() obj:Destroy() end) end end
+    if Settings.SheriffESP then local s = FindSheriff(); if s then HighlightRole(s, Color3.fromRGB(0, 150, 255)) end end
+    if Settings.MurdererESP then local m = FindMurderer(); if m then HighlightRole(m, Color3.fromRGB(255, 50, 50)) end end
 end
 
 local function GetClosestEnemyInFOV(fov)
@@ -417,23 +287,12 @@ local function GetClosestEnemyInFOV(fov)
     return best
 end
 
-local function FireWeapon()
-    pcall(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton1(Vector2.new())
-    end)
-end
+local function FireWeapon() pcall(function() VirtualUser:CaptureController(); VirtualUser:ClickButton1(Vector2.new()) end) end
 
 -- ========== ESP ВКЛАДКА ==========
 CreateSection(Pages["ESP"], "Role ESP")
-CreateToggle(Pages["ESP"], "Sheriff ESP (Blue)", false, function(on)
-    Settings.SheriffESP = on
-    CreateRoleESP()
-end)
-CreateToggle(Pages["ESP"], "Murderer ESP (Red)", false, function(on)
-    Settings.MurdererESP = on
-    CreateRoleESP()
-end)
+CreateToggle(Pages["ESP"], "Sheriff ESP (Blue)", false, function(on) Settings.SheriffESP = on; CreateRoleESP() end)
+CreateToggle(Pages["ESP"], "Murderer ESP (Red)", false, function(on) Settings.MurdererESP = on; CreateRoleESP() end)
 
 CreateSection(Pages["ESP"], "Item ESP")
 CreateToggle(Pages["ESP"], "Gun ESP (Yellow)", false, function(on)
@@ -447,21 +306,13 @@ CreateToggle(Pages["ESP"], "Gun ESP (Yellow)", false, function(on)
                     local name = obj.Name:lower()
                     if name:find("gun") or name:find("revolver") or name:find("pistol") then
                         if not obj:FindFirstChild("EtherealHighlight") then
-                            local hl = Instance.new("Highlight")
-                            hl.Name = "EtherealHighlight"
-                            hl.FillColor = Color3.fromRGB(255, 255, 0)
-                            hl.FillTransparency = 0.5
-                            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                            hl.OutlineTransparency = 0
-                            hl.Parent = obj
+                            local hl = Instance.new("Highlight"); hl.Name = "EtherealHighlight"; hl.FillColor = Color3.fromRGB(255, 255, 0); hl.FillTransparency = 0.5; hl.OutlineColor = Color3.fromRGB(255, 255, 255); hl.OutlineTransparency = 0; hl.Parent = obj
                         end
                     end
                 end
             end
         end)
-    else
-        if Connections.GunESP then Connections.GunESP:Disconnect() end
-    end
+    else if Connections.GunESP then Connections.GunESP:Disconnect() end end
 end)
 
 CreateToggle(Pages["ESP"], "Coin ESP (Gold)", false, function(on)
@@ -475,21 +326,13 @@ CreateToggle(Pages["ESP"], "Coin ESP (Gold)", false, function(on)
                     local name = obj.Name:lower()
                     if name:find("coin") or name:find("crystal") or name:find("gem") then
                         if not obj:FindFirstChild("EtherealHighlight") then
-                            local hl = Instance.new("Highlight")
-                            hl.Name = "EtherealHighlight"
-                            hl.FillColor = Color3.fromRGB(255, 200, 0)
-                            hl.FillTransparency = 0.5
-                            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                            hl.OutlineTransparency = 0
-                            hl.Parent = obj
+                            local hl = Instance.new("Highlight"); hl.Name = "EtherealHighlight"; hl.FillColor = Color3.fromRGB(255, 200, 0); hl.FillTransparency = 0.5; hl.OutlineColor = Color3.fromRGB(255, 255, 255); hl.OutlineTransparency = 0; hl.Parent = obj
                         end
                     end
                 end
             end
         end)
-    else
-        if Connections.CoinESP then Connections.CoinESP:Disconnect() end
-    end
+    else if Connections.CoinESP then Connections.CoinESP:Disconnect() end end
 end)
 
 -- ========== COMBAT ВКЛАДКА ==========
@@ -497,21 +340,10 @@ CreateSection(Pages["Combat"], "Aimbot")
 CreateToggle(Pages["Combat"], "Enable Aimbot", false, function(on)
     Settings.Aimbot = on
     if on then
-        if not FOVCircle then
-            local c = Drawing.new("Circle")
-            c.Radius = Settings.AimbotFOV
-            c.Color = Color3.fromRGB(0, 255, 200)
-            c.Thickness = 1.5
-            c.Transparency = 0.7
-            c.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-            FOVCircle = c
-        end
+        if not FOVCircle then local c = Drawing.new("Circle"); c.Radius = Settings.AimbotFOV; c.Color = Color3.fromRGB(0, 255, 200); c.Thickness = 1.5; c.Transparency = 0.7; c.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2); FOVCircle = c end
         if Connections.Aim then Connections.Aim:Disconnect() end
         Connections.Aim = RunService.RenderStepped:Connect(function()
-            if not Settings.Aimbot then
-                if FOVCircle then FOVCircle:Remove(); FOVCircle = nil end
-                return
-            end
+            if not Settings.Aimbot then if FOVCircle then FOVCircle:Remove(); FOVCircle = nil end return end
             local target = GetClosestEnemyInFOV(Settings.AimbotFOV)
             if target and target.Character then
                 local aimPart = target.Character:FindFirstChild("Head") or target.Character:FindFirstChild("HumanoidRootPart")
@@ -521,9 +353,7 @@ CreateToggle(Pages["Combat"], "Enable Aimbot", false, function(on)
                 end
             end
         end)
-    else
-        if Connections.Aim then Connections.Aim:Disconnect() end
-    end
+    else if Connections.Aim then Connections.Aim:Disconnect() end end
 end)
 CreateSlider(Pages["Combat"], "Aimbot FOV", 40, 400, 120, function(v) Settings.AimbotFOV = v; if FOVCircle then FOVCircle.Radius = v end end)
 CreateSlider(Pages["Combat"], "Aimbot Smoothness", 0.05, 1, 1, function(v) Settings.AimbotSmoothness = v end)
@@ -537,21 +367,10 @@ CreateSection(Pages["Combat"], "Knife Aimbot")
 CreateToggle(Pages["Combat"], "Enable Knife Aimbot", false, function(on)
     Settings.KnifeAimbot = on
     if on then
-        if not KnifeFOVCircle then
-            local c = Drawing.new("Circle")
-            c.Radius = Settings.KnifeAimbotFOV
-            c.Color = Color3.fromRGB(255, 50, 50)
-            c.Thickness = 1.5
-            c.Transparency = 0.5
-            c.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-            KnifeFOVCircle = c
-        end
+        if not KnifeFOVCircle then local c = Drawing.new("Circle"); c.Radius = Settings.KnifeAimbotFOV; c.Color = Color3.fromRGB(255, 50, 50); c.Thickness = 1.5; c.Transparency = 0.5; c.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2); KnifeFOVCircle = c end
         if Connections.KnifeAim then Connections.KnifeAim:Disconnect() end
         Connections.KnifeAim = RunService.RenderStepped:Connect(function()
-            if not Settings.KnifeAimbot then
-                if KnifeFOVCircle then KnifeFOVCircle:Remove(); KnifeFOVCircle = nil end
-                return
-            end
+            if not Settings.KnifeAimbot then if KnifeFOVCircle then KnifeFOVCircle:Remove(); KnifeFOVCircle = nil end return end
             local target = FindMurderer()
             if target and target.Character then
                 local head = target.Character:FindFirstChild("Head")
@@ -568,9 +387,7 @@ CreateToggle(Pages["Combat"], "Enable Knife Aimbot", false, function(on)
                 end
             end
         end)
-    else
-        if Connections.KnifeAim then Connections.KnifeAim:Disconnect() end
-    end
+    else if Connections.KnifeAim then Connections.KnifeAim:Disconnect() end end
 end)
 CreateSlider(Pages["Combat"], "Knife FOV", 20, 200, 60, function(v) Settings.KnifeAimbotFOV = v; if KnifeFOVCircle then KnifeFOVCircle.Radius = v end end)
 CreateToggle(Pages["Combat"], "Auto Stab", false, function(on) Settings.KnifeAutoStab = on end)
@@ -581,20 +398,14 @@ CreateToggle(Pages["Move"], "Fly", false, function(on)
     Settings.Fly = on
     if on then
         if Connections.Fly then Connections.Fly:Disconnect() end
-        local char = LocalPlayer.Character
-        if not char then return end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChild("Humanoid")
+        local char = LocalPlayer.Character; if not char then return end
+        local root = char:FindFirstChild("HumanoidRootPart"); local hum = char:FindFirstChild("Humanoid")
         if root and hum then
-            local bg = Instance.new("BodyGyro")
-            bg.P = 9e4; bg.maxTorque = Vector3.new(9e9, 9e9, 9e9); bg.CFrame = root.CFrame; bg.Parent = root
-            local bv = Instance.new("BodyVelocity")
-            bv.maxForce = Vector3.new(9e9, 9e9, 9e9); bv.Parent = root
+            local bg = Instance.new("BodyGyro"); bg.P = 9e4; bg.maxTorque = Vector3.new(9e9, 9e9, 9e9); bg.CFrame = root.CFrame; bg.Parent = root
+            local bv = Instance.new("BodyVelocity"); bv.maxForce = Vector3.new(9e9, 9e9, 9e9); bv.Parent = root
             Connections.Fly = RunService.RenderStepped:Connect(function()
                 if not Settings.Fly then bg:Destroy(); bv:Destroy(); Connections.Fly:Disconnect(); hum.PlatformStand = false; return end
-                hum.PlatformStand = true
-                bv.Velocity = Camera.CFrame.LookVector * Settings.FlySpeed
-                bg.CFrame = Camera.CFrame
+                hum.PlatformStand = true; bv.Velocity = Camera.CFrame.LookVector * Settings.FlySpeed; bg.CFrame = Camera.CFrame
             end)
         end
     else
@@ -610,15 +421,9 @@ CreateToggle(Pages["Move"], "NoClip", false, function(on)
         if Connections.NC then Connections.NC:Disconnect() end
         Connections.NC = RunService.Stepped:Connect(function()
             if not Settings.NoClip then return end
-            if LocalPlayer.Character then
-                for _, p in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if p:IsA("BasePart") then p.CanCollide = false end
-                end
-            end
+            if LocalPlayer.Character then for _, p in pairs(LocalPlayer.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end
         end)
-    else
-        if Connections.NC then Connections.NC:Disconnect() end
-    end
+    else if Connections.NC then Connections.NC:Disconnect() end end
 end)
 
 CreateToggle(Pages["Move"], "Speed Hack", false, function(on)
@@ -626,15 +431,11 @@ CreateToggle(Pages["Move"], "Speed Hack", false, function(on)
     if on then
         if Connections.Spd then Connections.Spd:Disconnect() end
         Connections.Spd = RunService.RenderStepped:Connect(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid.WalkSpeed = Settings.SpeedValue
-            end
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = Settings.SpeedValue end
         end)
     else
         if Connections.Spd then Connections.Spd:Disconnect() end
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = 16
-        end
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end
     end
 end)
 CreateSlider(Pages["Move"], "Walk Speed", 16, 300, 50, function(v) Settings.SpeedValue = v end)
@@ -645,13 +446,9 @@ CreateToggle(Pages["Move"], "Infinite Jump", false, function(on)
         if Connections.Jmp then Connections.Jmp:Disconnect() end
         Connections.Jmp = UserInputService.JumpRequest:Connect(function()
             if not Settings.InfiniteJump then return end
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
         end)
-    else
-        if Connections.Jmp then Connections.Jmp:Disconnect() end
-    end
+    else if Connections.Jmp then Connections.Jmp:Disconnect() end end
 end)
 
 -- ========== MISC ВКЛАДКА ==========
@@ -662,19 +459,14 @@ CreateToggle(Pages["Misc"], "Auto Collect Coins", false, function(on)
         if Connections.ACC then Connections.ACC:Disconnect() end
         Connections.ACC = RunService.RenderStepped:Connect(function()
             if not Settings.AutoCollect then return end
-            local myChar = LocalPlayer.Character
-            if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+            local myChar = LocalPlayer.Character; if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
             for _, obj in pairs(Workspace:GetDescendants()) do
                 if obj:IsA("BasePart") and (obj.Name:lower():find("coin") or obj.Name:lower():find("gem")) then
-                    if (myChar.HumanoidRootPart.Position - obj.Position).Magnitude < Settings.AutoCollectRange then
-                        myChar.HumanoidRootPart.CFrame = CFrame.new(obj.Position + Vector3.new(0,3,0))
-                    end
+                    if (myChar.HumanoidRootPart.Position - obj.Position).Magnitude < Settings.AutoCollectRange then myChar.HumanoidRootPart.CFrame = CFrame.new(obj.Position + Vector3.new(0,3,0)) end
                 end
             end
         end)
-    else
-        if Connections.ACC then Connections.ACC:Disconnect() end
-    end
+    else if Connections.ACC then Connections.ACC:Disconnect() end end
 end)
 CreateSlider(Pages["Misc"], "Collect Range", 10, 100, 30, function(v) Settings.AutoCollectRange = v end)
 
@@ -685,18 +477,12 @@ CreateToggle(Pages["Misc"], "God Mode", false, function(on)
         Connections.GM = RunService.RenderStepped:Connect(function()
             if not Settings.GodMode then return end
             local myChar = LocalPlayer.Character
-            if myChar and myChar:FindFirstChild("Humanoid") then
-                myChar.Humanoid.Health = myChar.Humanoid.MaxHealth
-                myChar.Humanoid.MaxHealth = 999999
-            end
+            if myChar and myChar:FindFirstChild("Humanoid") then myChar.Humanoid.Health = myChar.Humanoid.MaxHealth; myChar.Humanoid.MaxHealth = 999999 end
         end)
-    else
-        if Connections.GM then Connections.GM:Disconnect() end
-    end
+    else if Connections.GM then Connections.GM:Disconnect() end end
 end)
 
 -- ========== TROLL ВКЛАДКА (FLING) ==========
--- Troll Tab (Fling)
 local selectedFlingTarget = nil
 
 local FlingMenuBtn = Instance.new("TextButton")
@@ -707,7 +493,7 @@ FlingMenuBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 FlingMenuBtn.Font = Enum.Font.GothamBold
 FlingMenuBtn.TextSize = 13
 FlingMenuBtn.BorderSizePixel = 0
-FlingMenuBtn.Parent = TabContents["Troll"]
+FlingMenuBtn.Parent = Pages["Troll"] -- ИСПРАВЛЕНО
 Instance.new("UICorner", FlingMenuBtn).CornerRadius = UDim.new(0, 8)
 
 local FlingFrame = Instance.new("Frame")
@@ -715,7 +501,7 @@ FlingFrame.Size = UDim2.new(1, 0, 0, 150)
 FlingFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
 FlingFrame.BorderSizePixel = 0
 FlingFrame.Visible = false
-FlingFrame.Parent = TabContents["Troll"]
+FlingFrame.Parent = Pages["Troll"] -- ИСПРАВЛЕНО
 Instance.new("UICorner", FlingFrame).CornerRadius = UDim.new(0, 6)
 
 local FlingScroll = Instance.new("ScrollingFrame")
@@ -739,8 +525,7 @@ FlingStartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 FlingStartBtn.Font = Enum.Font.GothamBold
 FlingStartBtn.TextSize = 12
 FlingStartBtn.BorderSizePixel = 0
-FlingStartBtn.Parent = FlingFrame
-Instance.new("UICorner", FlingStartBtn).CornerRadius = UDim.new(0, 6)
+FlingStartBtn.Parent = FlingFrameInstance.new("UICorner", FlingStartBtn).CornerRadius = UDim.new(0, 6)
 
 FlingMenuBtn.MouseButton1Click:Connect(function()
     PlayClick()
@@ -879,11 +664,7 @@ TitleBar.InputBegan:Connect(function(input)
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
     end
 end)
 TitleBar.InputChanged:Connect(function(input)
