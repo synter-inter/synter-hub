@@ -1,23 +1,23 @@
 --[[
-    lemon PRO mm2
+    lemon PRO mm2 v5.0
     by:@Promtikdeepseek
-    Part 1/4: Core, Config, UI, Widgets
+    Part 1/5 - Core, UI Framework, Animations, Widgets
 ]]
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
-local StarterGui = game:GetService("StarterGui")
+local Players            = game:GetService("Players")
+local RunService         = game:GetService("RunService")
+local UserInputService   = game:GetService("UserInputService")
+local CoreGui            = game:GetService("CoreGui")
+local Workspace          = game:GetService("Workspace")
+local TweenService       = game:GetService("TweenService")
+local HttpService        = game:GetService("HttpService")
+local StarterGui         = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
 -- ==========================================
--- CONFIGURATION
+-- 1. CONFIGURATION & THEMES
 -- ==========================================
 local Config = {
     ESP = {
@@ -37,81 +37,193 @@ local Config = {
 
 local State = {
     Theme = "Red", Lang = "ru", CurrentTab = "ESP",
-    Dragging = false, Resizing = false
+    Dragging = false, Resizing = false, IsOpen = false
 }
 
 local Themes = {
-    Red = {Ac = Color3.fromRGB(255, 60, 60), Bg = Color3.fromRGB(15, 15, 18), Bg2 = Color3.fromRGB(22, 22, 26)},
-    Blue = {Ac = Color3.fromRGB(60, 140, 255), Bg = Color3.fromRGB(12, 15, 20), Bg2 = Color3.fromRGB(18, 22, 30)},
-    Green = {Ac = Color3.fromRGB(60, 220, 120), Bg = Color3.fromRGB(10, 20, 15), Bg2 = Color3.fromRGB(16, 28, 22)},
-    Black = {Ac = Color3.fromRGB(220, 220, 220), Bg = Color3.fromRGB(5, 5, 5), Bg2 = Color3.fromRGB(12, 12, 12)},
+    Red = {Ac = Color3.fromRGB(255, 60, 60), Bg = Color3.fromRGB(15, 15, 18), Bg2 = Color3.fromRGB(22, 22, 26), Stroke = Color3.fromRGB(50, 50, 60)},
+    Blue = {Ac = Color3.fromRGB(60, 140, 255), Bg = Color3.fromRGB(12, 15, 20), Bg2 = Color3.fromRGB(18, 22, 30), Stroke = Color3.fromRGB(40, 50, 70)},
+    Green = {Ac = Color3.fromRGB(60, 220, 120), Bg = Color3.fromRGB(10, 20, 15), Bg2 = Color3.fromRGB(16, 28, 22), Stroke = Color3.fromRGB(30, 60, 40)},
+    Black = {Ac = Color3.fromRGB(220, 220, 220), Bg = Color3.fromRGB(5, 5, 5), Bg2 = Color3.fromRGB(12, 12, 12), Stroke = Color3.fromRGB(30, 30, 30)},
 }
 
-local L = {
-    ru = {esp="ESP", aim="Аим", player="Игрок", set="Настройки", vis="Визуал", chams="Чамсы", targ="Цель", mods="Моды"},
-    en = {esp="ESP", aim="Aim", player="Player", set="Settings", vis="Visual", chams="Chams", targ="Target", mods="Mods"}
-}
-local function GetText(k) return L[State.Lang][k] or k end
-
--- ==========================================
--- UI LIBRARY
--- ==========================================
-local UI = {}
-function UI.New(class, props)
-    local obj = Instance.new(class)
-    for k, v in pairs(props) do obj[k] = v end
-    return obj
+local function GetText(key)
+    local lang = {
+        ru = {esp="ESP", aim="Аим", player="Игрок", set="Настройки"},
+        en = {esp="ESP", aim="Aim", player="Player", set="Settings"}
+    }
+    return lang[State.Lang][key] or key
 end
 
-UI.ScreenGui = UI.New("ScreenGui", {Name = "lemon_v4", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = CoreGui})
+-- ==========================================
+-- 2. UI LIBRARY BASE
+-- ==========================================
+local UI = {}
 
--- Кнопка для мобилок
-UI.ToggleBtn = UI.New("TextButton", {Size = UDim2.fromOffset(50, 50), Position = UDim2.new(0, 15, 0.4, 0), BackgroundColor3 = Themes.Red.Bg, Text = "L", TextColor3 = Themes.Red.Ac, Font = Enum.Font.GothamBold, TextSize = 20, Parent = UI.ScreenGui})
-Instance.new("UICorner", UI.ToggleBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", UI.ToggleBtn).Color = Themes.Red.Ac
+function UI.Create(class, properties)
+    local inst = Instance.new(class)
+    for k, v in pairs(properties) do
+        inst[k] = v
+    end
+    return inst
+end
 
-UI.Main = UI.New("Frame", {Size = UDim2.fromOffset(450, 320), Position = UDim2.new(0.5, -225, 0.5, -160), BackgroundColor3 = Themes.Red.Bg, Visible = false, Parent = UI.ScreenGui})
-Instance.new("UICorner", UI.Main).CornerRadius = UDim.new(0, 8)
-UI.MainStroke = Instance.new("UIStroke", UI.Main)
-UI.MainStroke.Color = Themes.Red.Ac
-UI.MainStroke.Thickness = 1.5
+function UI.Corner(radius, parent)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius)
+    c.Parent = parent
+    return c
+end
 
--- Шапка
-UI.Topbar = UI.New("Frame", {Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = Themes.Red.Bg2, Parent = UI.Main})
-Instance.new("UICorner", UI.Topbar).CornerRadius = UDim.new(0, 8)
-UI.New("Frame", {Size = UDim2.new(1, 0, 0, 15), Position = UDim2.new(0, 0, 1, -15), BackgroundColor3 = Themes.Red.Bg2, Parent = UI.Topbar})
+function UI.Stroke(color, thickness, parent)
+    local s = Instance.new("UIStroke")
+    s.Color = color
+    s.Thickness = thickness
+    s.Parent = parent
+    return s
+end
 
-UI.Title = UI.New("TextLabel", {Text = "lemon", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Themes.Red.Ac, BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(0, 100, 1, 0), TextXAlignment = Enum.TextXAlignment.Left, Parent = UI.Topbar})
+function UI.Padding(px, parent)
+    local p = Instance.new("UIPadding")
+    p.PaddingLeft = UDim.new(0, px)
+    p.Parent = parent
+    return p
+end
 
-UI.Close = UI.New("TextButton", {Text = "✕", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Color3.fromRGB(200,200,200), BackgroundTransparency = 1, Size = UDim2.fromOffset(30, 30), Position = UDim2.new(1, -30, 0, 0), Parent = UI.Topbar})
+-- Главный ScreenGui
+UI.Screen = UI.Create("ScreenGui", {
+    Name = "lemon_v5",
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    IgnoreGuiInset = true,
+    Parent = CoreGui
+})
 
--- Ресайз (Правый верхний угол)
-UI.Resize = UI.New("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(20, 20), Position = UDim2.new(1, -20, 0, 0), Parent = UI.Main})
-UI.New("Frame", {Size = UDim2.fromOffset(8, 2), Position = UDim2.fromOffset(10, 6), BackgroundColor3 = Themes.Red.Ac, Parent = UI.Resize})
-UI.New("Frame", {Size = UDim2.fromOffset(2, 8), Position = UDim2.fromOffset(10, 6), BackgroundColor3 = Themes.Red.Ac, Parent = UI.Resize})
+-- Кнопка для телефона (Слева)
+UI.ToggleBtn = UI.Create("TextButton", {
+    Size = UDim2.fromOffset(50, 50),
+    Position = UDim2.new(0, 15, 0.4, 0),
+    BackgroundColor3 = Themes[State.Theme].Bg,
+    Text = "L",
+    TextColor3 = Themes[State.Theme].Ac,
+    Font = Enum.Font.GothamBold,
+    TextSize = 22,
+    Parent = UI.Screen
+})
+UI.Corner(25, UI.ToggleBtn)
+local toggleStroke = UI.Stroke(Themes[State.Theme].Ac, 2, UI.ToggleBtn)
 
--- Меню
-UI.TabBar = UI.New("Frame", {Size = UDim2.new(0, 100, 1, -34), Position = UDim2.fromOffset(4, 34), BackgroundTransparency = 1, Parent = UI.Main})
-UI.Content = UI.New("Frame", {Size = UDim2.new(1, -108, 1, -38), Position = UDim2.fromOffset(104, 34), BackgroundTransparency = 1, Parent = UI.Main})
+-- Главное окно
+UI.Main = UI.Create("Frame", {
+    Size = UDim2.fromOffset(500, 360),
+    Position = UDim2.new(0.5, -250, 0.5, -180),
+    BackgroundColor3 = Themes[State.Theme].Bg,
+    Visible = false,
+    Parent = UI.Screen
+})
+UI.Corner(8, UI.Main)
+UI.MainStroke = UI.Stroke(Themes[State.Theme].Ac, 1.5, UI.Main)
+
+-- Шапка (за нее таскаем)
+UI.Topbar = UI.Create("Frame", {
+    Size = UDim2.new(1, 0, 0, 34),
+    BackgroundColor3 = Themes[State.Theme].Bg2,
+    Parent = UI.Main
+})
+UI.Corner(8, UI.Topbar)
+-- Скрываем нижние углы шапки
+UI.Create("Frame", {
+    Size = UDim2.new(1, 0, 0, 17),
+    Position = UDim2.new(0, 0, 1, -17),
+    BackgroundColor3 = Themes[State.Theme].Bg2,
+    BorderSizePixel = 0,
+    Parent = UI.Topbar
+})
+
+UI.Title = UI.Create("TextLabel", {
+    Text = "lemon",
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+    TextColor3 = Themes[State.Theme].Ac,
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(12, 0),
+    Size = UDim2.new(0, 100, 1, 0),
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Parent = UI.Topbar
+})
+
+UI.Close = UI.Create("TextButton", {
+    Text = "✕",
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
+    TextColor3 = Color3.fromRGB(200, 200, 200),
+    BackgroundTransparency = 1,
+    Size = UDim2.fromOffset(34, 34),
+    Position = UDim2.new(1, -34, 0, 0),
+    Parent = UI.Topbar
+})
+
+-- Маркер ресайза (Правый верхний угол)
+UI.Resize = UI.Create("TextButton", {
+    Text = "",
+    BackgroundTransparency = 1,
+    Size = UDim2.fromOffset(20, 20),
+    Position = UDim2.new(1, -20, 0, 0),
+    Parent = UI.Main
+})
+UI.Create("Frame", {Size = UDim2.fromOffset(8, 2), Position = UDim2.fromOffset(10, 6), BackgroundColor3 = Themes[State.Theme].Ac, Parent = UI.Resize})
+UI.Create("Frame", {Size = UDim2.fromOffset(2, 8), Position = UDim2.fromOffset(10, 6), BackgroundColor3 = Themes[State.Theme].Ac, Parent = UI.Resize})
+
+-- Меню (Слева)
+UI.TabBar = UI.Create("Frame", {
+    Size = UDim2.new(0, 110, 1, -38),
+    Position = UDim2.fromOffset(4, 38),
+    BackgroundTransparency = 1,
+    Parent = UI.Main
+})
+
+-- Контент (Справа) - ClipsDescendants чтобы не вылезало за края
+UI.Content = UI.Create("Frame", {
+    Size = UDim2.new(1, -118, 1, -42),
+    Position = UDim2.fromOffset(114, 38),
+    BackgroundTransparency = 1,
+    ClipsDescendants = true,
+    Parent = UI.Main
+})
 
 UI.Pages = {}
 UI.TabButtons = {}
 
+-- ==========================================
+-- 3. UI TABS (Фикс слипания)
+-- ==========================================
 function UI.MakeTab(id, name)
-    local btn = UI.New("TextButton", {
-        Size = UDim2.new(1, -4, 0, 30), Position = UDim2.new(0, 2, 0, #UI.TabButtons * 32),
-        BackgroundColor3 = Themes[State.Theme].Bg2, BackgroundTransparency = 1, Text = name,
-        Font = Enum.Font.GothamMedium, TextSize = 11, TextColor3 = Color3.fromRGB(180,180,180),
-        TextXAlignment = Enum.TextXAlignment.Left, Parent = UI.TabBar
+    local btn = UI.Create("TextButton", {
+        Size = UDim2.new(1, -4, 0, 34),
+        Position = UDim2.new(0, 2, 0, #UI.TabButtons * 36),
+        BackgroundColor3 = Themes[State.Theme].Bg2,
+        BackgroundTransparency = 1,
+        Text = name,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 12,
+        TextColor3 = Color3.fromRGB(180, 180, 180),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = UI.TabBar
     })
-    local pad = Instance.new("UIPadding", btn); pad.PaddingLeft = UDim.new(0, 8)
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    UI.Padding(10, btn)
+    UI.Corner(6, btn)
 
-    local page = UI.New("ScrollingFrame", {
-        Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
-        ScrollBarThickness = 2, ScrollBarImageColor3 = Themes[State.Theme].Ac,
-        CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        Visible = false, Parent = UI.Content -- ЖЕСТКО СКРЫТО
+    -- Каждая страница создается в отдельном ScrollingFrame
+    local page = UI.Create("ScrollingFrame", {
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Themes[State.Theme].Ac,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Visible = false,
+        Parent = UI.Content
     })
     local layout = Instance.new("UIListLayout", page)
     layout.Padding = UDim.new(0, 4)
@@ -121,60 +233,71 @@ function UI.MakeTab(id, name)
     UI.TabButtons[id] = btn
 
     btn.MouseButton1Click:Connect(function()
-        -- ФИКС СЛИПАНИЯ: Скрываем ВСЕ страницы без исключения
+        State.CurrentTab = id
+        -- СКРЫВАЕМ ВСЕ ВКЛАДКИ
         for k, p in pairs(UI.Pages) do 
             p.Visible = false 
         end
-        -- Показываем только нужную
+        -- ПОКАЗЫВАЕМ ТОЛЬКО ВЫБРАННУЮ
         UI.Pages[id].Visible = true
         
-        -- Красим кнопки
         for k, b in pairs(UI.TabButtons) do
-            b.BackgroundTransparency = (k == id) and 0.8 or 1
-            b.TextColor3 = (k == id) and Themes[State.Theme].Ac or Color3.fromRGB(180, 180, 180)
+            if k == id then
+                b.BackgroundTransparency = 0.8
+                b.TextColor3 = Themes[State.Theme].Ac
+            else
+                b.BackgroundTransparency = 1
+                b.TextColor3 = Color3.fromRGB(180, 180, 180)
+            end
         end
     end)
     return page
 end
 
 -- ==========================================
--- WIDGETS
+-- 4. WIDGETS (Виджеты с анимациями)
 -- ==========================================
 local Widgets = {}
 
 function Widgets.Toggle(parent, text, key, tbl, cb)
-    local f = UI.New("Frame", {Size = UDim2.new(1, -8, 0, 28), BackgroundColor3 = Themes[State.Theme].Bg2, Parent = parent})
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 4)
-    local lbl = UI.New("TextLabel", {Text = text, Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = Color3.fromRGB(220,220,220), BackgroundTransparency = 1, Size = UDim2.new(1, -50, 1, 0), TextXAlignment = Enum.TextXAlignment.Left, Parent = f})
-    local pad = Instance.new("UIPadding", lbl); pad.PaddingLeft = UDim.new(0, 8)
+    local f = UI.Create("Frame", {Size = UDim2.new(1, -8, 0, 30), BackgroundColor3 = Themes[State.Theme].Bg2, Parent = parent})
+    UI.Corner(4, f)
     
-    local sw = UI.New("TextButton", {Text = "", BackgroundColor3 = tbl[key] and Themes[State.Theme].Ac or Color3.fromRGB(50,50,55), Size = UDim2.fromOffset(32, 16), Position = UDim2.new(1, -38, 0.5, -8), Parent = f})
-    Instance.new("UICorner", sw).CornerRadius = UDim.new(1, 0)
-    local dot = UI.New("Frame", {Size = UDim2.fromOffset(12,12), Position = tbl[key] and UDim2.new(1,-14,0.5,-6) or UDim2.new(0,2,0.5,-6), BackgroundColor3 = Color3.fromRGB(255,255,255), Parent = sw})
-    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+    local lbl = UI.Create("TextLabel", {Text = text, Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = Color3.fromRGB(220,220,220), BackgroundTransparency = 1, Size = UDim2.new(1, -50, 1, 0), TextXAlignment = Enum.TextXAlignment.Left, Parent = f})
+    UI.Padding(8, lbl)
+    
+    local sw = UI.Create("TextButton", {Text = "", BackgroundColor3 = tbl[key] and Themes[State.Theme].Ac or Color3.fromRGB(50,50,55), Size = UDim2.fromOffset(34, 18), Position = UDim2.new(1, -40, 0.5, -9), Parent = f})
+    UI.Corner(9, sw)
+    
+    local dot = UI.Create("Frame", {Size = UDim2.fromOffset(14,14), Position = tbl[key] and UDim2.new(1,-16,0.5,-7) or UDim2.new(0,2,0.5,-7), BackgroundColor3 = Color3.fromRGB(255,255,255), Parent = sw})
+    UI.Corner(7, dot)
 
     sw.MouseButton1Click:Connect(function()
         tbl[key] = not tbl[key]
-        sw.BackgroundColor3 = tbl[key] and Themes[State.Theme].Ac or Color3.fromRGB(50,50,55)
-        dot.Position = tbl[key] and UDim2.new(1,-14,0.5,-6) or UDim2.new(0,2,0.5,-6)
+        TweenService:Create(sw, TweenInfo.new(0.2), {BackgroundColor3 = tbl[key] and Themes[State.Theme].Ac or Color3.fromRGB(50,50,55)}):Play()
+        TweenService:Create(dot, TweenInfo.new(0.2), {Position = tbl[key] and UDim2.new(1,-16,0.5,-7) or UDim2.new(0,2,0.5,-7)}):Play()
         if cb then cb() end
     end)
 end
 
 function Widgets.Slider(parent, text, key, tbl, min, max, cb)
-    local f = UI.New("Frame", {Size = UDim2.new(1, -8, 0, 40), BackgroundColor3 = Themes[State.Theme].Bg2, Parent = parent})
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 4)
-    local lbl = UI.New("TextLabel", {Text = text .. ": " .. tostring(tbl[key]), Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = Color3.fromRGB(220,220,220), BackgroundTransparency = 1, Size = UDim2.new(1, -10, 0, 16), Position = UDim2.fromOffset(8, 4), TextXAlignment = Enum.TextXAlignment.Left, Parent = f})
+    local f = UI.Create("Frame", {Size = UDim2.new(1, -8, 0, 42), BackgroundColor3 = Themes[State.Theme].Bg2, Parent = parent})
+    UI.Corner(4, f)
     
-    local bar = UI.New("TextButton", {Size = UDim2.new(1, -16, 0, 4), Position = UDim2.fromOffset(8, 26), BackgroundColor3 = Color3.fromRGB(50,50,55), Text = "", Parent = f})
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-    local fill = UI.New("Frame", {Size = UDim2.fromScale((tbl[key]-min)/(max-min), 1), BackgroundColor3 = Themes[State.Theme].Ac, Parent = bar})
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+    local lbl = UI.Create("TextLabel", {Text = text .. ": " .. tostring(tbl[key]), Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = Color3.fromRGB(220,220,220), BackgroundTransparency = 1, Size = UDim2.new(1, -10, 0, 16), Position = UDim2.fromOffset(8, 4), TextXAlignment = Enum.TextXAlignment.Left, Parent = f})
+    
+    local bar = UI.Create("TextButton", {Size = UDim2.new(1, -16, 0, 6), Position = UDim2.fromOffset(8, 28), BackgroundColor3 = Color3.fromRGB(50,50,55), Text = "", Parent = f})
+    UI.Corner(3, bar)
+    
+    local fill = UI.Create("Frame", {Size = UDim2.fromScale((tbl[key]-min)/(max-min), 1), BackgroundColor3 = Themes[State.Theme].Ac, Parent = bar})
+    UI.Corner(3, fill)
 
     local dragging = false
     bar.MouseButton1Down:Connect(function() dragging = true end)
     UserInputService.InputEnded:Connect(function(i) 
-        if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end 
+        if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then 
+            dragging = false 
+        end 
     end)
     UserInputService.InputChanged:Connect(function(i)
         if dragging and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then
@@ -189,10 +312,11 @@ function Widgets.Slider(parent, text, key, tbl, min, max, cb)
 end
 
 function Widgets.Dropdown(parent, text, key, tbl, options, cb)
-    local f = UI.New("Frame", {Size = UDim2.new(1, -8, 0, 28), BackgroundColor3 = Themes[State.Theme].Bg2, Parent = parent})
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 4)
-    local btn = UI.New("TextButton", {Text = text .. ": " .. tostring(tbl[key]), Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = Color3.fromRGB(220,220,220), BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), TextXAlignment = Enum.TextXAlignment.Left, Parent = f})
-    local pad = Instance.new("UIPadding", btn); pad.PaddingLeft = UDim.new(0, 8)
+    local f = UI.Create("Frame", {Size = UDim2.new(1, -8, 0, 30), BackgroundColor3 = Themes[State.Theme].Bg2, Parent = parent})
+    UI.Corner(4, f)
+    
+    local btn = UI.Create("TextButton", {Text = text .. ": " .. tostring(tbl[key]), Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = Color3.fromRGB(220,220,220), BackgroundTransparency = 1, Size = UDim2.fromScale(1,1), TextXAlignment = Enum.TextXAlignment.Left, Parent = f})
+    UI.Padding(8, btn)
 
     local idx = 1
     for i, o in ipairs(options) do if tostring(o) == tostring(tbl[key]) then idx = i end end
@@ -206,69 +330,129 @@ function Widgets.Dropdown(parent, text, key, tbl, options, cb)
 end
 
 function Widgets.Section(parent, text)
-    UI.New("TextLabel", {Text = text, Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = Themes[State.Theme].Ac, BackgroundTransparency = 1, Size = UDim2.new(1, -8, 0, 20), TextXAlignment = Enum.TextXAlignment.Left, Parent = parent})
+    local s = UI.Create("TextLabel", {Text = text, Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = Themes[State.Theme].Ac, BackgroundTransparency = 1, Size = UDim2.new(1, -8, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, Parent = parent})
+    UI.Padding(4, s)
+end
+
+function Widgets.Keybind(parent, text, key, tbl, cb)
+    local f = UI.Create("Frame", {Size = UDim2.new(1, -8, 0, 30), BackgroundColor3 = Themes[State.Theme].Bg2, Parent = parent})
+    UI.Corner(4, f)
+    
+    local lbl = UI.Create("TextLabel", {Text = text, Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = Color3.fromRGB(220,220,220), BackgroundTransparency = 1, Size = UDim2.new(0.5, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Left, Parent = f})
+    UI.Padding(8, lbl)
+    
+    local btn = UI.Create("TextButton", {Text = tostring(tbl[key]), Font = Enum.Font.GothamMedium, TextSize = 11, TextColor3 = Themes[State.Theme].Ac, BackgroundColor3 = Themes[State.Theme].Bg, Size = UDim2.new(0.4, -10, 0, 20), Position = UDim2.new(0.6, 0, 0.5, -10), Parent = f})
+    UI.Corner(4, btn)
+
+    local listening = false
+    btn.MouseButton1Click:Connect(function() 
+        listening = true
+        btn.Text = "..." 
+    end)
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if listening and not gp then
+            listening = false
+            local k = tostring(input.KeyCode):gsub("Enum.KeyCode.", "")
+            if input.UserInputType ~= Enum.UserInputType.Keyboard then 
+                k = tostring(input.UserInputType):gsub("Enum.UserInputType.", "") 
+            end
+            tbl[key] = k
+            btn.Text = k
+            if cb then cb(k) end
+        end
+    end)
 end
 
 -- ==========================================
--- UI LOGIC (Drag, Toggle, Resize)
+-- 5. UI LOGIC (Drag, Resize, Toggle)
 -- ==========================================
-UI.ToggleBtn.MouseButton1Click:Connect(function() UI.Main.Visible = not UI.Main.Visible end)
-UI.Close.MouseButton1Click:Connect(function() UI.Main.Visible = false end)
+UI.ToggleBtn.MouseButton1Click:Connect(function() 
+    State.IsOpen = not State.IsOpen
+    UI.Main.Visible = State.IsOpen 
+    UI.ToggleBtn.Visible = not State.IsOpen
+end)
 
+UI.Close.MouseButton1Click:Connect(function() 
+    State.IsOpen = false
+    UI.Main.Visible = false
+    UI.ToggleBtn.Visible = true
+end)
+
+-- Перетаскивание окна за шапку (Поддержка Touch)
 UI.Topbar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         State.Dragging = true
         local start = input.Position
         local startPos = UI.Main.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then State.Dragging = false end
-        end)
-        UserInputService.InputChanged:Connect(function(i)
+        
+        local dragConn
+        dragConn = UserInputService.InputChanged:Connect(function(i)
             if State.Dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
                 local delta = i.Position - start
                 UI.Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
-    end
-end)
-
-UI.Resize.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        State.Resizing = true
-        local start = input.Position
-        local startSize = UI.Main.Size
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then State.Resizing = false end
-        end)
-        UserInputService.InputChanged:Connect(function(i)
-            if State.Resizing and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-                local delta = i.Position - start
-                UI.Main.Size = UDim2.fromOffset(
-                    math.max(350, startSize.X.Offset - delta.X),
-                    math.max(250, startSize.Y.Offset + delta.Y)
-                )
+        
+        local endConn
+        endConn = UserInputService.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                State.Dragging = false
+                dragConn:Disconnect()
+                endConn:Disconnect()
             end
         end)
     end
 end)
 
--- Создаем вкладки
+-- Изменение размера окна (Поддержка Touch)
+UI.Resize.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        State.Resizing = true
+        local start = input.Position
+        local startSize = UI.Main.Size
+        
+        local resizeConn
+        resizeConn = UserInputService.InputChanged:Connect(function(i)
+            if State.Resizing and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                local delta = i.Position - start
+                UI.Main.Size = UDim2.fromOffset(
+                    math.max(400, startSize.X.Offset - delta.X),
+                    math.max(300, startSize.Y.Offset + delta.Y)
+                )
+            end
+        end)
+        
+        local endConn
+        endConn = UserInputService.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                State.Resizing = false
+                resizeConn:Disconnect()
+                endConn:Disconnect()
+            end
+        end)
+    end
+end)
+
+-- Создаем сами вкладки
 local pageESP = UI.MakeTab("ESP", GetText("esp"))
 local pageAim = UI.MakeTab("Aim", GetText("aim"))
 local pagePlayer = UI.MakeTab("Player", GetText("player"))
 local pageSettings = UI.MakeTab("Settings", GetText("set"))
 
--- Включаем первую вкладку при загрузке (фикс)
+-- Включаем вкладку ESP по умолчанию
 UI.Pages["ESP"].Visible = true
 UI.TabButtons["ESP"].BackgroundTransparency = 0.8
 UI.TabButtons["ESP"].TextColor3 = Themes[State.Theme].Ac-- ============================================================
--- ЧАСТЬ 2: ESP, CHAMS, PREVIEW
+-- ЧАСТЬ 2 / 5: ESP, CHAMS, PREVIEW, ROLE COLORS
 -- ============================================================
 
 -- Проверка Drawing API
-local hasDrawing = pcall(function() local d = Drawing.new("Square"); d:Remove() end)
-local Draw = {}
+local hasDrawing = pcall(function() 
+    local d = Drawing.new("Square") 
+    d:Remove() 
+end)
 
+local Draw = {}
 if hasDrawing then
     function Draw.New(type, props)
         local obj = Drawing.new(type)
@@ -276,18 +460,20 @@ if hasDrawing then
         return obj
     end
 else
+    -- Заглушка чтобы скрипт не крашился на мобилках без Drawing
     function Draw.New() return {Visible=false, Remove=function() end} end
-    pcall(function() StarterGui:SetCore("SendNotification", {Title="lemon", Text="Drawing API недоступен", Duration=3}) end)
+    pcall(function() StarterGui:SetCore("SendNotification", {Title="lemon", Text="Drawing API недоступен, ESP не будет рисоваться.", Duration=5}) end)
 end
 
 -- ============================================================
--- ПРЕДПРОСМОТР (3D МОДЕЛЬКА)
+-- ПРЕДПРОСМОТР (3D МОДЕЛЬКА В UI)
 -- ============================================================
-local Preview = {
-    Model = nil, Camera = nil, Conn = nil, Rotation = 0
-}
+local Preview = { Model = nil, Camera = nil, Center = nil, Rotation = 0, IsBuilt = false }
 
 function Preview.Build(parent)
+    if Preview.IsBuilt then return end
+    Preview.IsBuilt = true
+
     local holder = Instance.new("Frame")
     holder.Size = UDim2.new(1, -8, 0, 160)
     holder.BackgroundColor3 = Themes[State.Theme].Bg2
@@ -332,6 +518,7 @@ function Preview.Build(parent)
 
     LocalPlayer.CharacterAdded:Connect(function() task.wait(1); cloneChar() end)
 
+    -- Вращение камеры
     RunService.RenderStepped:Connect(function(dt)
         if not Preview.Model or not Preview.Center then return end
         Preview.Rotation = Preview.Rotation + dt * 25
@@ -343,11 +530,10 @@ function Preview.Build(parent)
 
     task.wait(0.5)
     cloneChar()
-    return holder
 end
 
 -- ============================================================
--- ESP ДВИЖОК
+-- БАЗА ESP
 -- ============================================================
 local ESP_Objects = {}
 
@@ -369,24 +555,27 @@ local function GetRigType(char)
     return "R15"
 end
 
+-- Определение роли (по оружию в руках)
 local function GetRole(plr)
     if not plr or not plr.Character then return "Innocent" end
     for _, tool in ipairs(plr.Character:GetChildren()) do
         if tool:IsA("Tool") then
             local n = tool.Name:Lower()
-            if n:find("knife") or n:find("dagger") then return "Murder" end
-            if n:find("gun") or n:find("revolver") then return "Sheriff" end
+            if n:find("knife") or n:find("dagger") or n:find("blade") then return "Murder" end
+            if n:find("gun") or n:find("revolver") or n:find("pistol") then return "Sheriff" end
         end
     end
     return "Innocent"
 end
 
+-- Цвета ролей (Зеленый, Красный, Синий)
 local function GetRoleColor(role)
-    if role == "Murder" then return Color3.fromRGB(255, 50, 50) end
-    if role == "Sheriff" then return Color3.fromRGB(50, 150, 255) end
-    return Color3.fromRGB(50, 255, 50)
+    if role == "Murder" then return Color3.fromRGB(255, 50, 50) end   -- Красный
+    if role == "Sheriff" then return Color3.fromRGB(50, 150, 255) end  -- Синий
+    return Color3.fromRGB(50, 255, 50)                                 -- Зеленый
 end
 
+-- Цвет здоровья
 local function GetHealthColor(hp, max)
     local r = hp / max
     if r > 0.5 then return Color3.fromRGB(60, 220, 120) end
@@ -394,6 +583,7 @@ local function GetHealthColor(hp, max)
     return Color3.fromRGB(255, 60, 60)
 end
 
+-- Отрисовка Бокса вокруг персонажа
 local function GetBoundingBox(char)
     local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
     local onScreen = false
@@ -415,6 +605,7 @@ local function GetBoundingBox(char)
     return Vector2.new(minX, minY), Vector2.new(maxX, maxY)
 end
 
+-- Инициализация объектов ESP
 local function CreateESP(plr)
     if plr == LocalPlayer then return end
     if ESP_Objects[plr] then return end
@@ -425,8 +616,8 @@ local function CreateESP(plr)
         HealthBg = Draw.New("Square", {Thickness = 0, Filled = true, Color = Color3.fromRGB(30,30,30), Visible = false}),
         HealthFill = Draw.New("Square", {Thickness = 0, Filled = true, Visible = false}),
         Name = Draw.New("Text", {Center = true, Outline = true, Size = 13, Visible = false}),
+        RoleTxt = Draw.New("Text", {Center = true, Outline = true, Size = 14, Visible = false}), -- Увеличенный текст роли
         Dist = Draw.New("Text", {Center = true, Outline = true, Size = 11, Visible = false}),
-        Role = Draw.New("Text", {Center = true, Outline = true, Size = 11, Visible = false}),
         HeadDot = Draw.New("Circle", {Thickness = 0, Filled = true, Visible = false}),
         Tracer = Draw.New("Line", {Thickness = 1, Visible = false}),
         Skeleton = {},
@@ -436,8 +627,8 @@ local function CreateESP(plr)
     if plr.Character then
         local hl = Instance.new("Highlight")
         hl.Adornee = plr.Character
-        hl.FillColor = Themes[State.Theme].Ac
-        hl.OutlineColor = Themes[State.Theme].Ac
+        hl.FillColor = GetRoleColor(GetRole(plr))
+        hl.OutlineColor = GetRoleColor(GetRole(plr))
         hl.FillTransparency = 0.5
         hl.OutlineTransparency = 0.2
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -448,6 +639,7 @@ local function CreateESP(plr)
     ESP_Objects[plr] = obj
 end
 
+-- Удаление
 local function RemoveESP(plr)
     local obj = ESP_Objects[plr]
     if not obj then return end
@@ -459,14 +651,16 @@ local function RemoveESP(plr)
     ESP_Objects[plr] = nil
 end
 
+-- Цикл обновления ESP
 local function UpdateESP()
     if not Config.ESP.Enabled then
+        -- Скрываем все если выключено
         for _, obj in pairs(ESP_Objects) do
-            obj.Box.Visible = false; obj.Fill.Visible = false; obj.HealthBg.Visible = false; obj.HealthFill.Visible = false
-            obj.Name.Visible = false; obj.Dist.Visible = false; obj.Role.Visible = false; obj.HeadDot.Visible = false
-            obj.Tracer.Visible = false
-            if obj.Highlight then obj.Highlight.Enabled = false end
+            for k, v in pairs(obj) do
+                if k ~= "Skeleton" and k ~= "Highlight" and v and v.Visible ~= nil then v.Visible = false end
+            end
             for _, line in ipairs(obj.Skeleton) do if line then line.Visible = false end end
+            if obj.Highlight then obj.Highlight.Enabled = false end
         end
         return
     end
@@ -487,6 +681,7 @@ local function UpdateESP()
                     local role = GetRole(plr)
                     local color = GetRoleColor(role)
                     local w, h = br.X - tl.X, br.Y - tl.Y
+                    local midX = (tl.X + br.X) / 2
 
                     -- Box
                     obj.Box.Size = Vector2.new(w, h)
@@ -521,29 +716,32 @@ local function UpdateESP()
                         obj.HealthBg.Visible = false; obj.HealthFill.Visible = false
                     end
 
-                    -- Texts
+                    -- Текст: Имя
                     if Config.ESP.Name then
                         obj.Name.Text = plr.Name
-                        obj.Name.Position = Vector2.new((tl.X + br.X) / 2, tl.Y - 16)
+                        obj.Name.Position = Vector2.new(midX, tl.Y - 32)
                         obj.Name.Color = Color3.fromRGB(255, 255, 255)
                         obj.Name.Visible = true
                     else obj.Name.Visible = false end
 
+                    -- Текст: РОЛЬ (Прям над головой)
+                    if Config.ESP.Role then
+                        obj.RoleTxt.Text = role
+                        obj.RoleTxt.Position = Vector2.new(midX, tl.Y - 16) -- Чуть ниже имени
+                        obj.RoleTxt.Color = color
+                        obj.RoleTxt.Size = 14 -- Жирный шрифт
+                        obj.RoleTxt.Visible = true
+                    else obj.RoleTxt.Visible = false end
+
+                    -- Текст: Дистанция
                     if Config.ESP.Distance then
                         obj.Dist.Text = math.floor(dist) .. "m"
-                        obj.Dist.Position = Vector2.new((tl.X + br.X) / 2, br.Y + 2)
+                        obj.Dist.Position = Vector2.new(midX, br.Y + 2)
                         obj.Dist.Color = color
                         obj.Dist.Visible = true
                     else obj.Dist.Visible = false end
 
-                    if Config.ESP.Role then
-                        obj.Role.Text = role
-                        obj.Role.Position = Vector2.new((tl.X + br.X) / 2, br.Y + 16)
-                        obj.Role.Color = color
-                        obj.Role.Visible = true
-                    else obj.Role.Visible = false end
-
-                    -- HeadDot
+                    -- Точка на голове
                     if Config.ESP.HeadDot then
                         local hp, vis = Camera:WorldToViewportPoint(head.Position)
                         if vis then
@@ -554,15 +752,15 @@ local function UpdateESP()
                         else obj.HeadDot.Visible = false end
                     else obj.HeadDot.Visible = false end
 
-                    -- Tracer
+                    -- Трейсер
                     if Config.ESP.Tracer then
                         obj.Tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                        obj.Tracer.To = Vector2.new((tl.X + br.X) / 2, br.Y)
+                        obj.Tracer.To = Vector2.new(midX, br.Y)
                         obj.Tracer.Color = color
                         obj.Tracer.Visible = true
                     else obj.Tracer.Visible = false end
 
-                    -- Skeleton
+                    -- Скелет (Кости)
                     if Config.ESP.Skeleton then
                         local rig = GetRigType(char)
                         local bones = (rig == "R6") and SkeletonR6 or SkeletonR15
@@ -585,49 +783,53 @@ local function UpdateESP()
                         for _, line in ipairs(obj.Skeleton) do line.Visible = false end
                     end
 
-                    -- Chams
+                    -- Чамсы (Highlight)
                     if obj.Highlight then
                         obj.Highlight.Enabled = Config.ESP.Chams
-                        obj.Highlight.FillColor = Config.ESP.Rainbow and Color3.fromHSV((tick() * 0.5) % 1, 1, 1) or Themes[State.Theme].Ac
-                        obj.Highlight.OutlineColor = Config.ESP.Rainbow and Color3.fromHSV((tick() * 0.5) % 1, 1, 1) or Themes[State.Theme].Ac
-                        obj.Highlight.FillTransparency = math.clamp(0.8 - (Config.ESP.ChamsGlow * 0.1), 0, 1)
-                        obj.Highlight.OutlineTransparency = math.clamp(0.5 - (Config.ESP.ChamsGlow * 0.05), 0, 1)
+                        obj.Highlight.FillColor = Config.ESP.Rainbow and Color3.fromHSV((tick() * 0.5) % 1, 1, 1) or color
+                        obj.Highlight.OutlineColor = Config.ESP.Rainbow and Color3.fromHSV((tick() * 0.5) % 1, 1, 1) or color
+                        obj.Highlight.FillTransparency = math.clamp(0.7 - (Config.ESP.ChamsGlow * 0.05), 0, 1)
+                        obj.Highlight.OutlineTransparency = math.clamp(0.4 - (Config.ESP.ChamsGlow * 0.03), 0, 1)
                     end
                 end
             else
-                obj.Box.Visible = false; obj.Fill.Visible = false; obj.HealthBg.Visible = false; obj.HealthFill.Visible = false
-                obj.Name.Visible = false; obj.Dist.Visible = false; obj.Role.Visible = false; obj.HeadDot.Visible = false
-                obj.Tracer.Visible = false
+                -- Игрок слишком далеко (Скрываем)
+                for k, v in pairs(obj) do
+                    if k ~= "Skeleton" and k ~= "Highlight" and v and v.Visible ~= nil then v.Visible = false end
+                end
                 for _, line in ipairs(obj.Skeleton) do line.Visible = false end
                 if obj.Highlight then obj.Highlight.Enabled = false end
             end
         else
-            obj.Box.Visible = false; obj.Fill.Visible = false; obj.HealthBg.Visible = false; obj.HealthFill.Visible = false
-            obj.Name.Visible = false; obj.Dist.Visible = false; obj.Role.Visible = false; obj.HeadDot.Visible = false
-            obj.Tracer.Visible = false
+            -- Игрок мертв или модель не загрузилась
+            for k, v in pairs(obj) do
+                if k ~= "Skeleton" and k ~= "Highlight" and v and v.Visible ~= nil then v.Visible = false end
+            end
             for _, line in ipairs(obj.Skeleton) do line.Visible = false end
             if obj.Highlight then obj.Highlight.Enabled = false end
         end
     end
 end
 
--- Инициализация
+-- Инициализация игроков
 for _, plr in ipairs(Players:GetPlayers()) do CreateESP(plr) end
-Players.PlayerAdded:Connect(function(plr) plr.CharacterAdded:Connect(function() task.wait(0.5); CreateESP(plr) end) end)
+Players.PlayerAdded:Connect(function(plr) 
+    plr.CharacterAdded:Connect(function() task.wait(0.5); CreateESP(plr) end) 
+end)
 Players.PlayerRemoving:Connect(RemoveESP)
 RunService.RenderStepped:Connect(UpdateESP)
 
 -- ============================================================
 -- UI ДЛЯ ESP
 -- ============================================================
-Widgets.Section(pageESP, "ESP")
+Widgets.Section(pageESP, "Настройки ESP")
 Widgets.Toggle(pageESP, "Включить ESP", "Enabled", Config.ESP)
 Widgets.Toggle(pageESP, "Квадрат", "Box", Config.ESP)
 Widgets.Toggle(pageESP, "Заливка", "Fill", Config.ESP)
 Widgets.Toggle(pageESP, "HP Бар", "Health", Config.ESP)
 Widgets.Toggle(pageESP, "Имя", "Name", Config.ESP)
+Widgets.Toggle(pageESP, "Роль (Текст)", "Role", Config.ESP)
 Widgets.Toggle(pageESP, "Дистанция", "Distance", Config.ESP)
-Widgets.Toggle(pageESP, "Роль", "Role", Config.ESP)
 Widgets.Toggle(pageESP, "Точка на голове", "HeadDot", Config.ESP)
 Widgets.Toggle(pageESP, "Скелет", "Skeleton", Config.ESP)
 Widgets.Toggle(pageESP, "Трейсер", "Tracer", Config.ESP)
@@ -642,7 +844,7 @@ Widgets.Section(pageESP, "Предпросмотр")
 Widgets.Toggle(pageESP, "3D Модель", "Preview", Config.ESP, function(v)
     if v then Preview.Build(pageESP) end
 end)-- ============================================================
--- ЧАСТЬ 3: AIMBOT, FOV, WALLCHECK, PREDICTION
+-- ЧАСТЬ 3 / 5: AIMBOT, FOV, WALLCHECK, PREDICTION
 -- ============================================================
 
 local Aim = {
@@ -650,6 +852,7 @@ local Aim = {
     FOVCircle = Draw.New("Circle", {Thickness = 1.5, NumSides = 64, Visible = false}),
     Target = nil,
     TargetPart = nil,
+    LockedPlayer = nil
 }
 
 -- ==========================================
@@ -686,7 +889,7 @@ local function IsValidTarget(plr)
     local hum = plr.Character:FindFirstChild("Humanoid")
     if not hum or hum.Health <= 0 then return false end
     
-    -- Проверка команды
+    -- Проверка команды (если включена в ESP)
     if Config.ESP.Team and plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
         return false
     end
@@ -725,6 +928,17 @@ local function GetClosestTarget()
     local bestPart = nil
     local bestDist = Config.Aim.FOV
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    -- Если есть залоченная цель и она жива, держим её
+    if Config.Aim.LockTarget and Aim.LockedPlayer then
+        local plr = Aim.LockedPlayer
+        if plr and plr.Character and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid.Health > 0 then
+            local part = GetHitPart(plr.Character)
+            if part then return part end
+        else
+            Aim.LockedPlayer = nil
+        end
+    end
 
     for _, plr in ipairs(Players:GetPlayers()) do
         if IsValidTarget(plr) then
@@ -808,6 +1022,7 @@ UserInputService.InputEnded:Connect(function(input)
     
     if inputStr == Config.Aim.Keybind then
         Aim.Held = false
+        if not Config.Aim.LockTarget then Aim.LockedPlayer = nil end
     end
 end)
 
@@ -816,6 +1031,7 @@ end)
 -- ==========================================
 Widgets.Section(pageAim, "Настройки Аима")
 Widgets.Toggle(pageAim, "Включить Аимбот", "Enabled", Config.Aim)
+Widgets.Keybind(pageAim, "Кнопка активации", "Keybind", Config.Aim)
 Widgets.Dropdown(pageAim, "Роль цели", "Target", Config.Aim, {"All", "Murder", "Sheriff", "Innocent"})
 Widgets.Dropdown(pageAim, "Часть тела", "Part", Config.Aim, {"Head", "Torso", "Random"})
 
@@ -826,8 +1042,9 @@ Widgets.Slider(pageAim, "Предсказание", "Prediction", Config.Aim, 0,
 Widgets.Toggle(pageAim, "Рисовать FOV", "DrawFOV", Config.Aim)
 
 Widgets.Section(pageAim, "Проверки")
-Widgets.Toggle(pageAim, "WallCheck (Видимость)", "WallCheck", Config.Aim)-- ============================================================
--- ЧАСТЬ 4: PLAYER MODS, SETTINGS, WATERMARK, FINAL
+Widgets.Toggle(pageAim, "WallCheck (Видимость)", "WallCheck", Config.Aim)
+Widgets.Toggle(pageAim, "Захват цели (Lock)", "LockTarget", Config.Aim)-- ============================================================
+-- ЧАСТЬ 4 / 5: PLAYER MODS, SETTINGS, WATERMARK
 -- ============================================================
 
 -- ==========================================
@@ -942,8 +1159,8 @@ Widgets.Dropdown(pageSettings, "Тема", "Theme", State, {"Red", "Blue", "Gree
 Widgets.Dropdown(pageSettings, "Язык / Language", "Lang", State, {"ru", "en"}, ApplyLanguage)
 
 Widgets.Section(pageSettings, "Информация")
-local infoLabel = UI.New("TextLabel", {
-    Text = "lemon PRO v4.0\nby:@Promtikdeepseek\n\nDrawing API: " .. tostring(hasDrawing),
+local infoLabel = UI.Create("TextLabel", {
+    Text = "lemon PRO v5.0\nby:@Promtikdeepseek\n\nDrawing API: " .. tostring(hasDrawing),
     Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = Color3.fromRGB(180, 180, 180),
     BackgroundTransparency = 1, Size = UDim2.new(1, -8, 0, 80), TextXAlignment = Enum.TextXAlignment.Left,
     Parent = pageSettings
@@ -954,27 +1171,27 @@ infoPad.PaddingLeft = UDim.new(0, 10)
 -- ==========================================
 -- 4. WATERMARK / FPS / PING
 -- ==========================================
-local Watermark = UI.New("Frame", {
+local Watermark = UI.Create("Frame", {
     Size = UDim2.fromOffset(150, 24), Position = UDim2.new(0, 10, 0, 10),
     BackgroundColor3 = Themes[State.Theme].Bg, BackgroundTransparency = 0.2,
-    Parent = UI.ScreenGui
+    Parent = UI.Screen
 })
 Instance.new("UICorner", Watermark).CornerRadius = UDim.new(0, 4)
 local wmStroke = Instance.new("UIStroke", Watermark)
 wmStroke.Color = Themes[State.Theme].Ac
 
-local WM_Text = UI.New("TextLabel", {
-    Text = "lemon | v4.0", Font = Enum.Font.GothamBold, TextSize = 11,
+local WM_Text = UI.Create("TextLabel", {
+    Text = "lemon | v5.0", Font = Enum.Font.GothamBold, TextSize = 11,
     TextColor3 = Themes[State.Theme].Ac, BackgroundTransparency = 1,
     Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center,
     Parent = Watermark
 })
 
-local InfoLabel = UI.New("TextLabel", {
+local InfoLabel = UI.Create("TextLabel", {
     Text = "FPS: 60 | Ping: 0ms", Font = Enum.Font.Gotham, TextSize = 10,
     TextColor3 = Color3.fromRGB(200, 200, 200), BackgroundColor3 = Themes[State.Theme].Bg,
     BackgroundTransparency = 0.2, Size = UDim2.fromOffset(110, 18), Position = UDim2.new(0, 10, 0, 38),
-    Parent = UI.ScreenGui
+    Parent = UI.Screen
 })
 Instance.new("UICorner", InfoLabel).CornerRadius = UDim.new(0, 4)
 
@@ -1009,4 +1226,175 @@ pcall(function()
     StarterGui:SetCore("SendNotification", {Title = "lemon PRO", Text = "Скрипт успешно загружен!", Duration = 3})
 end)
 
-print("[lemon] PRO v4.0 loaded successfully | Drawing: " .. tostring(hasDrawing))
+print("[lemon] PRO v5.0 loaded successfully | Drawing: " .. tostring(hasDrawing))-- ============================================================
+-- ЧАСТЬ 5 / 5: PLAYER LIST, CONFIG SAVE, FINAL TOUCHES
+-- ============================================================
+
+-- ==========================================
+-- 1. PLAYER LIST (Список игроков)
+-- ==========================================
+Widgets.Section(pagePlayer, "Список игроков")
+local playerListContainer = UI.Create("Frame", {
+    Size = UDim2.new(1, -8, 0, 150),
+    BackgroundColor3 = Themes[State.Theme].Bg2,
+    BackgroundTransparency = 0.3,
+    Parent = pagePlayer
+})
+UI.Corner(4, playerListContainer)
+
+local playerScroll = UI.Create("ScrollingFrame", {
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 2,
+    ScrollBarImageColor3 = Themes[State.Theme].Ac,
+    CanvasSize = UDim2.new(0, 0, 0, 0),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    Parent = playerListContainer
+})
+
+local playerLayout = Instance.new("UIListLayout", playerScroll)
+playerLayout.Padding = UDim.new(0, 2)
+playerLayout.SortOrder = Enum.SortOrder.Name
+
+-- Функция обновления списка игроков
+local function RefreshPlayerList()
+    for _, child in ipairs(playerScroll:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local btn = UI.Create("TextButton", {
+                Size = UDim2.new(1, -4, 0, 24),
+                BackgroundColor3 = Themes[State.Theme].Bg,
+                Text = plr.Name,
+                TextColor3 = Color3.fromRGB(200, 200, 200),
+                Font = Enum.Font.Gotham,
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Parent = playerScroll
+            })
+            UI.Corner(2, btn)
+            UI.Padding(6, btn)
+
+            btn.MouseButton1Click:Connect(function()
+                -- Телепорт к игроку или аим на него (по желанию)
+                if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = plr.Character.HumanoidRootPart.CFrame
+                    end
+                end
+            end)
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(RefreshPlayerList)
+Players.PlayerRemoving:Connect(function() task.wait(0.1); RefreshPlayerList() end)
+task.wait(1)
+RefreshPlayerList()
+
+-- ==========================================
+-- 2. CONFIG SAVE / LOAD
+-- ==========================================
+local function SaveConfig()
+    local data = HttpService:JSONEncode(Config)
+    pcall(function()
+        if writefile then
+            writefile("lemon_config.json", data)
+            pcall(function() StarterGui:SetCore("SendNotification", {Title="lemon", Text="Конфиг сохранен!", Duration=2}) end)
+        end
+    end)
+end
+
+local function LoadConfig()
+    pcall(function()
+        if isfile and isfile("lemon_config.json") then
+            local data = readfile("lemon_config.json")
+            local decoded = HttpService:JSONDecode(data)
+            for section, tbl in pairs(decoded) do
+                if Config[section] then
+                    for k, v in pairs(tbl) do
+                        Config[section][k] = v
+                    end
+                end
+            end
+            pcall(function() StarterGui:SetCore("SendNotification", {Title="lemon", Text="Конфиг загружен!", Duration=2}) end)
+        end
+    end)
+end
+
+Widgets.Section(pageSettings, "Конфигурация")
+local saveBtn = UI.Create("TextButton", {
+    Size = UDim2.new(1, -8, 0, 30),
+    BackgroundColor3 = Themes[State.Theme].Bg2,
+    Text = "Сохранить настройки",
+    TextColor3 = Themes[State.Theme].Ac,
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    Parent = pageSettings
+})
+UI.Corner(4, saveBtn)
+saveBtn.MouseButton1Click:Connect(SaveConfig)
+
+local loadBtn = UI.Create("TextButton", {
+    Size = UDim2.new(1, -8, 0, 30),
+    BackgroundColor3 = Themes[State.Theme].Bg2,
+    Text = "Загрузить настройки",
+    TextColor3 = Themes[State.Theme].Ac,
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    Parent = pageSettings
+})
+UI.Corner(4, loadBtn)
+loadBtn.MouseButton1Click:Connect(LoadConfig)
+
+-- ==========================================
+-- 3. ANTI-CRASH SAFETY
+-- ==========================================
+-- Если скрипт запускается повторно, удаляем старый GUI
+local oldGui = CoreGui:FindFirstChild("lemon_v5")
+if oldGui then
+    oldGui:Destroy()
+end
+
+-- Защита от нехватки памяти на телефонах (очистка мусора)
+spawn(function()
+    while task.wait(60) do
+        pcall(function() collectgarbage("collect") end)
+    end
+end)
+
+-- ==========================================
+-- 4. RE-OPENING MENU BUTTON (для удобства на телефоне)
+-- ==========================================
+-- Создаем дубликат кнопки в правом нижнем углу, чтобы было удобно нажимать большим пальцем
+local mobileBtn = UI.Create("TextButton", {
+    Size = UDim2.fromOffset(45, 45),
+    Position = UDim2.new(1, -60, 1, -100),
+    BackgroundColor3 = Themes[State.Theme].Bg,
+    Text = "L",
+    TextColor3 = Themes[State.Theme].Ac,
+    Font = Enum.Font.GothamBold,
+    TextSize = 20,
+    Parent = UI.Screen
+})
+UI.Corner(22, mobileBtn)
+local mobStroke = UI.Stroke(Themes[State.Theme].Ac, 2, mobileBtn)
+
+mobileBtn.MouseButton1Click:Connect(function()
+    State.IsOpen = not State.IsOpen
+    UI.Main.Visible = State.IsOpen
+    mobileBtn.Visible = not State.IsOpen
+end)
+
+-- Синхронизация кнопок
+UI.ToggleBtn.MouseButton1Click:Connect(function()
+    mobileBtn.Visible = not UI.Main.Visible
+end)
+UI.Close.MouseButton1Click:Connect(function()
+    mobileBtn.Visible = true
+end)
+
+print("[lemon] Script successfully executed. Have fun!")
