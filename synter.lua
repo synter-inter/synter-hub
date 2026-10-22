@@ -425,41 +425,54 @@ GUI.ScreenGui = Utils.new("ScreenGui", {
 })
 GUI.ScreenGui.Parent = CoreGui
 
+-- Кнопка открытия (висит слева)
+GUI.ToggleBtn = Utils.new("TextButton", {
+    Text = "lemon",
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    TextColor3 = Color3.fromRGB(255, 60, 60),
+    BackgroundColor3 = Color3.fromRGB(20, 20, 22),
+    BackgroundTransparency = 0.1,
+    Size = UDim2.fromOffset(70, 30),
+    Position = UDim2.new(0, 10, 0.5, -15),
+    Visible = true,
+    Parent = GUI.ScreenGui,
+})
+Utils.new("UICorner", {CornerRadius = UDim.new(0, 6), Parent = GUI.ToggleBtn})
+Utils.new("UIStroke", {Color = Color3.fromRGB(255, 60, 60), Thickness = 1, Transparency = 0.3, Parent = GUI.ToggleBtn})
+
+-- Само окно
 GUI.Main = Utils.new("Frame", {
     Name = "Main",
-    Size = UDim2.fromOffset(560, 420),
-    Position = UDim2.new(0.5, -280, 0.5, -210),
+    Size = UDim2.fromOffset(500, 380), -- Уменьшил размер, чтобы влезало на телефон
+    Position = UDim2.new(0.5, -250, 0.5, -190),
     BackgroundColor3 = Themes[STATE.Theme].Bg,
     BorderSizePixel = 0,
     Active = true,
     Draggable = false,
+    Visible = false, -- Окно скрыто по умолчанию
 })
 GUI.Main.Parent = GUI.ScreenGui
-Utils.new("UICorner", {CornerRadius = UDim.new(0, 10), Parent = GUI.Main})
+Utils.new("UICorner", {CornerRadius = UDim.new(0, 8), Parent = GUI.Main})
+GUI.MainStroke = Utils.new("UIStroke", {Color = Themes[STATE.Theme].Accent, Thickness = 1, Transparency = 0.5, Parent = GUI.Main})
 
-GUI.MainStroke = Utils.new("UIStroke", {
-    Color = Themes[STATE.Theme].Accent,
-    Thickness = 1,
-    Transparency = 0.5,
-    Parent = GUI.Main,
-})
-
+-- Шапка
 GUI.Topbar = Utils.new("Frame", {
-    Size = UDim2.new(1, 0, 0, 36),
+    Size = UDim2.new(1, 0, 0, 32),
     BackgroundColor3 = Color3.fromRGB(0, 0, 0),
     BackgroundTransparency = 0.5,
     BorderSizePixel = 0,
     Parent = GUI.Main,
 })
-Utils.new("UICorner", {CornerRadius = UDim.new(0, 10), Parent = GUI.Topbar})
+Utils.new("UICorner", {CornerRadius = UDim.new(0, 8), Parent = GUI.Topbar})
 
 GUI.Title = Utils.new("TextLabel", {
     Text = "lemon",
     Font = Enum.Font.GothamBold,
-    TextSize = 17,
+    TextSize = 14,
     TextColor3 = Themes[STATE.Theme].Accent,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(16, 0),
+    Position = UDim2.fromOffset(12, 0),
     Size = UDim2.new(0, 100, 1, 0),
     TextXAlignment = Enum.TextXAlignment.Left,
     Parent = GUI.Topbar,
@@ -468,48 +481,48 @@ GUI.Title = Utils.new("TextLabel", {
 GUI.Version = Utils.new("TextLabel", {
     Text = "v" .. STATE.Version,
     Font = Enum.Font.Gotham,
-    TextSize = 11,
+    TextSize = 10,
     TextColor3 = Themes[STATE.Theme].TextDim,
     BackgroundTransparency = 1,
-    Position = UDim2.new(1, -130, 0, 0),
-    Size = UDim2.fromOffset(60, 36),
+    Position = UDim2.new(1, -100, 0, 0),
+    Size = UDim2.fromOffset(40, 32),
     TextXAlignment = Enum.TextXAlignment.Left,
     Parent = GUI.Topbar,
 })
 
+-- Кнопка свернуть
 GUI.CloseBtn = Utils.new("TextButton", {
-    Text = "✕",
+    Text = "—",
     Font = Enum.Font.GothamBold,
     TextSize = 14,
     TextColor3 = Color3.fromRGB(200, 200, 200),
     BackgroundTransparency = 1,
-    Size = UDim2.fromOffset(30, 30),
-    Position = UDim2.new(1, -36, 0, 3),
+    Size = UDim2.fromOffset(28, 28),
+    Position = UDim2.new(1, -32, 0, 2),
     Parent = GUI.Topbar,
 })
 
-GUI.CloseBtn.MouseButton1Click:Connect(function()
-    GUI.ScreenGui.Enabled = not GUI.ScreenGui.Enabled
-end)
-
+-- Уголок для ресайза
 GUI.ResizeHandle = Utils.new("TextButton", {
     Text = "",
     BackgroundTransparency = 1,
-    Size = UDim2.fromOffset(16, 16),
-    Position = UDim2.new(1, -18, 0, 2),
+    Size = UDim2.fromOffset(20, 20),
+    Position = UDim2.new(1, -20, 0, 0), 
     Parent = GUI.Main,
 })
 
+-- Вкладки (слева)
 GUI.TabBar = Utils.new("Frame", {
-    Size = UDim2.new(0, 120, 1, -42),
-    Position = UDim2.fromOffset(6, 40),
+    Size = UDim2.new(0, 100, 1, -38),
+    Position = UDim2.fromOffset(4, 36),
     BackgroundTransparency = 1,
     Parent = GUI.Main,
 })
 
+-- Контент (справа)
 GUI.Content = Utils.new("Frame", {
-    Size = UDim2.new(1, -138, 1, -46),
-    Position = UDim2.fromOffset(132, 40),
+    Size = UDim2.new(1, -112, 1, -42),
+    Position = UDim2.fromOffset(108, 36),
     BackgroundTransparency = 1,
     Parent = GUI.Main,
 })
@@ -521,30 +534,30 @@ function GUI.makeTab(id, label)
     local btn = Utils.new("TextButton", {
         Text = label,
         Font = Enum.Font.GothamMedium,
-        TextSize = 13,
+        TextSize = 11, -- Уменьшил шрифт вкладок
         TextColor3 = Themes[STATE.Theme].TextDim,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 32),
-        Position = UDim2.new(0, 0, 0, #GUI.TabButtons * 36),
+        Size = UDim2.new(1, 0, 0, 28),
+        Position = UDim2.new(0, 0, 0, #GUI.TabButtons * 30),
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = GUI.TabBar,
     })
-    Utils.new("UICorner", {CornerRadius = UDim.new(0, 6), Parent = btn})
-    Utils.new("UIPadding", {PaddingLeft = UDim.new(0, 10), Parent = btn})
+    Utils.new("UICorner", {CornerRadius = UDim.new(0, 4), Parent = btn})
+    Utils.new("UIPadding", {PaddingLeft = UDim.new(0, 6), Parent = btn})
 
     local page = Utils.new("ScrollingFrame", {
         Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        ScrollBarThickness = 3,
+        ScrollBarThickness = 2,
         ScrollBarImageColor3 = Themes[STATE.Theme].Accent,
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        Visible = false,
+        Visible = false, -- ВАЖНО: по умолчанию все скрыты
         Parent = GUI.Content,
     })
     Utils.new("UIListLayout", {
-        Padding = UDim.new(0, 6),
+        Padding = UDim.new(0, 4),
         SortOrder = Enum.SortOrder.LayoutOrder,
         Parent = page,
     })
@@ -553,27 +566,32 @@ function GUI.makeTab(id, label)
     GUI.TabButtons[id] = btn
 
     btn.MouseButton1Click:Connect(function()
-        for k, p in pairs(GUI.Pages) do p.Visible = (k == id) end
+        for k, p in pairs(GUI.Pages) do p.Visible = (k == id) end -- Скрываем неактивные
         for k, b in pairs(GUI.TabButtons) do
-            b.BackgroundTransparency = (k == id) and 0.78 or 1
+            b.BackgroundTransparency = (k == id) and 0.8 or 1
             b.BackgroundColor3 = Themes[STATE.Theme].BgAlt
             b.TextColor3 = (k == id) and Themes[STATE.Theme].Accent or Themes[STATE.Theme].TextDim
         end
     end)
 
-    if #GUI.TabButtons == 1 then
-        btn.BackgroundTransparency = 0.78
-        btn.BackgroundColor3 = Themes[STATE.Theme].BgAlt
-        btn.TextColor3 = Themes[STATE.Theme].Accent
-        page.Visible = true
-    end
-
     return page
+end)-- ============================================================
+-- DRAGGING / RESIZING / TOGGLE
+-- ============================================================
+local function openMenu()
+    GUI.Main.Visible = true
+    GUI.ToggleBtn.Visible = false
 end
 
--- ============================================================
--- DRAGGING / RESIZING
--- ============================================================
+local function closeMenu()
+    GUI.Main.Visible = false
+    GUI.ToggleBtn.Visible = true
+end
+
+GUI.ToggleBtn.MouseButton1Click:Connect(openMenu)
+GUI.CloseBtn.MouseButton1Click:Connect(closeMenu)
+
+-- Перетаскивание за шапку
 GUI.Topbar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         STATE.Dragging = true
@@ -583,12 +601,7 @@ GUI.Topbar.InputBegan:Connect(function(input)
         conn = UserInputService.InputChanged:Connect(function(i)
             if i.UserInputType == Enum.UserInputType.MouseMovement and STATE.Dragging then
                 local delta = i.Position - start
-                GUI.Main.Position = UDim2.new(
-                    startPos.X.Scale,
-                    startPos.X.Offset + delta.X,
-                    startPos.Y.Scale,
-                    startPos.Y.Offset + delta.Y
-                )
+                GUI.Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
         UserInputService.InputEnded:Connect(function(i)
@@ -600,6 +613,7 @@ GUI.Topbar.InputBegan:Connect(function(input)
     end
 end)
 
+-- Ресайз за правый верхний угол
 GUI.ResizeHandle.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         STATE.Resizing = true
@@ -610,8 +624,8 @@ GUI.ResizeHandle.InputBegan:Connect(function(input)
             if i.UserInputType == Enum.UserInputType.MouseMovement and STATE.Resizing then
                 local delta = i.Position - STATE.ResizeStart
                 GUI.Main.Size = UDim2.fromOffset(
-                    math.max(420, STATE.ResizeStartSize.X.Offset - delta.X),
-                    math.max(300, STATE.ResizeStartSize.Y.Offset + delta.Y)
+                    math.max(350, STATE.ResizeStartSize.X.Offset - delta.X),
+                    math.max(280, STATE.ResizeStartSize.Y.Offset + delta.Y)
                 )
             end
         end)
@@ -622,7 +636,7 @@ GUI.ResizeHandle.InputBegan:Connect(function(input)
             end
         end)
     end
-end)-- ============================================================
+end)                    
 -- WIDGET SYSTEM
 -- ============================================================
 local Widgets = {}
